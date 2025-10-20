@@ -1,5 +1,5 @@
 //utils/generateId.js
-const User = require('../models/user');
+import User from "../models/user.js";
 
 /**
  * Генерує унікальний числовий userId на основі найбільшого значення в базі
@@ -12,4 +12,4 @@ const generateUserId = async () => {
   return lastId + 1;
 };
 
-module.exports = { generateUserId };
+export { generateUserId };

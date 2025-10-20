@@ -1,13 +1,42 @@
-import { useState } from "react";
-import { Menu, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { Menu, X, User } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const navigate = useNavigate();
+
+  // Load user info from localStorage on mount
+  useEffect(() => {
+    const storedUser = localStorage.getItem("userInfo");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("userInfo");
+    setUser(null);
+    navigate("/");
+  };
 
   return (
     <nav
-      className="bg-[#096B8A] font-[Montserrat]"
+      className="bg-[#096B8A] font-[Montserrat] relative z-50"
       style={{ fontFamily: "Montserrat, sans-serif" }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -34,24 +63,58 @@ export default function Navbar() {
               >
                 Home
               </Link>
+
               <Link
                 to="/partner"
                 className="text-white px-4 py-2 rounded-md text-sm font-medium hover:text-[#CDEEF2] transition"
               >
                 Become a Partner
               </Link>
-              <Link
-                to="/register"
-                className="text-white px-4 py-2 rounded-md text-sm font-medium hover:text-[#CDEEF2] transition"
-              >
-                Register
-              </Link>
-              <Link
-                to="/login"
-                className="text-white px-4 py-2 rounded-md text-sm font-medium hover:text-[#CDEEF2] transition"
-              >
-                Log in
-              </Link>
+
+              {user ? (
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="flex items-center text-white px-4 py-2 rounded-md text-sm font-medium hover:text-[#CDEEF2] transition"
+                  >
+                    <User className="w-4 h-4 mr-1" />
+                    {user.name || "User"}
+                  </button>
+
+                  {dropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-md text-gray-800">
+                      <Link
+                        to="/profile"
+                        className="block px-4 py-2 text-sm hover:bg-[#CDEEF2] rounded-t-lg transition"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        Profile
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left block px-4 py-2 text-sm hover:bg-[#CDEEF2] rounded-b-lg transition"
+                      >
+                        Log out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <Link
+                    to="/register"
+                    className="text-white px-4 py-2 rounded-md text-sm font-medium hover:text-[#CDEEF2] transition"
+                  >
+                    Register
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="text-white px-4 py-2 rounded-md text-sm font-medium hover:text-[#CDEEF2] transition"
+                  >
+                    Log in
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 
@@ -83,18 +146,39 @@ export default function Navbar() {
             >
               Become a Partner
             </Link>
-            <Link
-              to="/register"
-              className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
-            >
-              Register
-            </Link>
-            <Link
-              to="/login"
-              className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
-            >
-              Log in
-            </Link>
+
+            {user ? (
+              <>
+                <Link
+                  to="/profile"
+                  className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
+                >
+                  Profile
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium w-full text-left"
+                >
+                  Log out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/register"
+                  className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
+                >
+                  Register
+                </Link>
+                <Link
+                  to="/login"
+                  to="/login"
+                  className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
+                >
+                  Log in
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

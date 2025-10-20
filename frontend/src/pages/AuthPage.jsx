@@ -1,69 +1,136 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import axios from "axios"; // Make sure to install: npm install axios
 
 const AuthPage = () => {
   const navigate = useNavigate();
+
+  // 'email' - for entering email, 'code' - for entering the code
+  const [step, setStep] = useState("email");
+
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Handler for requesting the code
+  const handleSendCode = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+    try {
+      // Replace '/api/auth/send-code' with your actual endpoint
+      await axios.post("/api/auth/send-code", { email });
+      setStep("code"); // Move to the next step
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to send code. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handler for verifying the code
+  const handleVerifyCode = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+    try {
+      // Replace '/api/auth/verify-code' with your actual endpoint
+      const { data } = await axios.post("/api/auth/verify-code", { email, code });
+
+      // Store user data and token (e.g., in localStorage)
+      localStorage.setItem("userInfo", JSON.stringify(data));
+
+      // Redirect to the home page
+      navigate("/");
+    } catch (err) {
+      setError(err.response?.data?.message || "Verification failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderEmailStep = () => (
+    <form onSubmit={handleSendCode}>
+      <h2 className="text-xl font-semibold mb-2 text-[#064d63]">
+        Log in or create an account
+      </h2>
+      <p className="text-sm text-gray-700 mb-6">
+        You can log in with your TheLùůpa account to use our services.
+      </p>
+      <input
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="w-full border border-gray-300 rounded-md p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-[#096B8A] bg-white"
+        required
+        disabled={isLoading}
+      />
+      <button
+        type="submit"
+        className="w-full bg-[#096B8A] text-white py-3 rounded-md hover:bg-[#064d63] transition-colors font-medium disabled:bg-gray-400"
+        disabled={isLoading}
+      >
+        {isLoading ? "Sending..." : "Continue with email"}
+      </button>
+    </form>
+  );
+
+  const renderCodeStep = () => (
+    <form onSubmit={handleVerifyCode}>
+      <h2 className="text-xl font-semibold mb-2 text-[#064d63]">
+        Confirm your email
+      </h2>
+      <p className="text-sm text-gray-700 mb-6">
+        We've sent a 6-digit code to <strong>{email}</strong>. Please enter it below.
+      </p>
+      <input
+        type="text"
+        placeholder="6-digit code"
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+        className="w-full border border-gray-300 rounded-md p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-[#096B8A] bg-white text-center tracking-[0.5em]"
+        maxLength="6"
+        required
+        disabled={isLoading}
+      />
+      <button
+        type="submit"
+        className="w-full bg-[#096B8A] text-white py-3 rounded-md hover:bg-[#064d63] transition-colors font-medium disabled:bg-gray-400"
+        disabled={isLoading}
+      >
+        {isLoading ? "Verifying..." : "Confirm & Log In"}
+      </button>
+    </form>
+  );
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-[#CDEEF2] text-gray-900 relative">
-      {/* Верхня панель */}
       <div className="w-full bg-[#096B8A] text-white py-4 px-6 text-lg font-semibold">
         TheLùůpa
       </div>
 
-      {/* Кнопка повернення */}
       <button
-        onClick={() => navigate("/")}
+        onClick={() => step === 'code' ? setStep('email') : navigate("/")}
         className="absolute top-20 left-8 flex items-center text-[#096B8A] hover:text-[#064d63] transition-colors"
       >
         <ArrowLeft className="w-5 h-5 mr-1" />
         <span className="text-sm font-medium">Back</span>
       </button>
 
-      {/* Основний контейнер */}
       <div className="flex flex-col justify-center items-center flex-grow w-full">
         <div className="bg-[#CDEEF2] rounded-lg p-6 sm:p-8 w-full max-w-sm text-center shadow-md">
-          <h2 className="text-xl font-semibold mb-2 text-[#064d63]">
-            Log in or create an account
-          </h2>
-          <p className="text-sm text-gray-700 mb-6">
-            You can log in with your TheLùůpa.com account to use our services.
-          </p>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              console.log("Email:", email);
-            }}
-          >
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-gray-300 rounded-md p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-[#096B8A] bg-white"
-              required
-            />
-            <button
-              type="submit"
-              className="w-full bg-[#096B8A] text-white py-3 rounded-md hover:bg-[#064d63] transition-colors font-medium"
-            >
-              Continue with email
-            </button>
-          </form>
-
-          <div className="mt-5 text-sm text-gray-600">
-            or choose another option
-          </div>
+          {step === "email" ? renderEmailStep() : renderCodeStep()}
+          {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
         </div>
       </div>
 
-      {/* Нижня смуга для візуального балансу */}
       <div className="w-full h-4 bg-[#96E5F1]" />
     </div>
   );
 };
 
 export default AuthPage;
+

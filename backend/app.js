@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import passport from "passport";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
+import authRoutes from './routes/authRoutes.js';
 
 const app = express();
 
@@ -31,7 +32,7 @@ app.use(passport.initialize());
 
 
 // Routes
-
+app.use('/api/auth', authRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
