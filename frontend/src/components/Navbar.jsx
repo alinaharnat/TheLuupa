@@ -172,7 +172,6 @@ export default function Navbar() {
                 </Link>
                 <Link
                   to="/login"
-                  to="/login"
                   className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
                 >
                   Log in

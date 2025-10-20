@@ -35,6 +35,7 @@ const sendVerificationCode = async (req, res) => {
         email,
         userId,
         name: email.split('@')[0], // Temporary name from email
+        surname: "", // Temporary empty surname
         dateOfBirth: new Date(),   // Temporary date
         emailVerificationToken: verificationToken,
         emailVerificationTokenExpires: tokenExpires,
@@ -95,6 +96,8 @@ const verifyCodeAndLogin = async (req, res) => {
       userId: user.userId,
       email: user.email,
       name: user.name,
+      surname: user.surname,
+      dateOfBirth: user.dateOfBirth,
       role: user.role,
       token,
       isNewUser, // Useful for frontend logic, e.g., redirect to a profile completion page

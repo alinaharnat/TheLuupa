@@ -22,6 +22,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  surname: {
+    type: String,
+    default: ""
+  },
   dateOfBirth: { type: Date, required: true },
   role: {
     type: String,

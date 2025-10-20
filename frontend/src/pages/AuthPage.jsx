@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import axios from "axios"; // Make sure to install: npm install axios
+import axios from "axios";
+import Footer from "../components/Footer";
 
 const AuthPage = () => {
   const navigate = useNavigate();
 
-  // 'email' - for entering email, 'code' - for entering the code
   const [step, setStep] = useState("email");
 
   const [email, setEmail] = useState("");
@@ -14,15 +14,13 @@ const AuthPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Handler for requesting the code
   const handleSendCode = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
     try {
-      // Replace '/api/auth/send-code' with your actual endpoint
       await axios.post("/api/auth/send-code", { email });
-      setStep("code"); // Move to the next step
+      setStep("code");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to send code. Please try again.");
     } finally {
@@ -30,19 +28,15 @@ const AuthPage = () => {
     }
   };
 
-  // Handler for verifying the code
   const handleVerifyCode = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
     try {
-      // Replace '/api/auth/verify-code' with your actual endpoint
       const { data } = await axios.post("/api/auth/verify-code", { email, code });
 
-      // Store user data and token (e.g., in localStorage)
       localStorage.setItem("userInfo", JSON.stringify(data));
 
-      // Redirect to the home page
       navigate("/");
     } catch (err) {
       setError(err.response?.data?.message || "Verification failed. Please try again.");
@@ -127,7 +121,7 @@ const AuthPage = () => {
         </div>
       </div>
 
-      <div className="w-full h-4 bg-[#96E5F1]" />
+      <Footer />
     </div>
   );
 };

@@ -1,16 +1,25 @@
 import { useState, forwardRef } from "react";
+import { useNavigate } from "react-router-dom";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { Search, Calendar } from "lucide-react";
-import heroImg from "../assets/heroImg.jpg"; 
-import "../styles/datepicker.css"; 
+import { Search, Calendar, Users, ArrowLeftRight } from "lucide-react";
+import heroImg from "../assets/heroImg.jpg";
+import "../styles/datepicker.css";
 
 export default function Hero() {
+  const navigate = useNavigate();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [date, setDate] = useState(null);
+  const [passengers, setPassengers] = useState(1);
   const [error, setError] = useState("");
   const today = new Date();
+
+  const handleSwapLocations = () => {
+    const temp = from;
+    setFrom(to);
+    setTo(temp);
+  };
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -26,8 +35,19 @@ export default function Hero() {
       setError("Date cannot be earlier than today.");
       return;
     }
+    if (passengers < 1 || passengers > 50) {
+      setError("Number of passengers must be between 1 and 50.");
+      return;
+    }
     setError("");
-    alert(`Searching trips from ${from} to ${to} on ${date.toLocaleDateString("en-GB")}`);
+
+    const searchParams = new URLSearchParams({
+      from: from.trim(),
+      to: to.trim(),
+      date: date.toISOString().split('T')[0],
+      passengers: passengers.toString()
+    });
+    navigate(`/search?${searchParams.toString()}`);
   };
 
   const CustomInput = forwardRef(({ value, onClick }, ref) => (
@@ -67,7 +87,14 @@ export default function Hero() {
         onChange={(e) => setFrom(e.target.value)}
         className="flex-1 min-w-[100px] px-6 py-3 text-gray-700 focus:outline-none text-sm md:text-base"
       />
-      <div className="hidden sm:block w-px h-6 bg-[#096B8A]/30"></div>
+      <button
+        type="button"
+        onClick={handleSwapLocations}
+        className="hidden sm:flex items-center justify-center p-2 text-[#096B8A] hover:bg-[#096B8A]/10 rounded-full transition"
+        title="Swap locations"
+      >
+        <ArrowLeftRight size={20} />
+      </button>
       <input
         type="text"
         placeholder="Where"
@@ -84,6 +111,18 @@ export default function Hero() {
           dateFormat="dd.MM.yy"
           customInput={<CustomInput />}
           calendarClassName="custom-calendar"
+        />
+      </div>
+      <div className="hidden sm:block w-px h-6 bg-[#096B8A]/30"></div>
+      <div className="flex items-center flex-1 min-w-[100px] px-6 py-3">
+        <Users size={18} className="text-gray-600 mr-2" />
+        <input
+          type="number"
+          min="1"
+          max="50"
+          value={passengers}
+          onChange={(e) => setPassengers(parseInt(e.target.value) || 1)}
+          className="w-full outline-none text-gray-700 text-sm md:text-base"
         />
       </div>
       <button
