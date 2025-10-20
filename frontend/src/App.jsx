@@ -1,13 +1,18 @@
-import React from 'react'
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import HomePage from "./pages/HomePage";
+import AuthPage from "./pages/AuthPage";
 
-const App = () => {
+
+function App() {
   return (
-    <div className="h-screen flex items-center justify-center bg-blue-500">
-      <h1 className="text-5xl font-bold text-yellow-400">
-        Tailwind працює!
-      </h1>
-    </div>
-  )
+    <Router>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/register" element={<AuthPage/>} />
+        <Route path="/login" element={<AuthPage />} />
+      </Routes>
+    </Router>
+  );
 }
 
-export default App
+export default App;
