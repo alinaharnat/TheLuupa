@@ -1,5 +1,6 @@
 //controllers/authController.js
 import User from '../models/user.js';
+import jwt from "jsonwebtoken";
 import { generateUserId } from '../utils/generateId.js';
 import { generateToken, generateEmailVerificationToken } from '../utils/generateToken.js';
 import { sendVerificationEmail } from '../config/email.js';
@@ -35,8 +36,6 @@ const sendVerificationCode = async (req, res) => {
         email,
         userId,
         name: email.split('@')[0], // Temporary name from email
-        surname: "", // Temporary empty surname
-        dateOfBirth: new Date(),   // Temporary date
         emailVerificationToken: verificationToken,
         emailVerificationTokenExpires: tokenExpires,
       });
@@ -96,7 +95,6 @@ const verifyCodeAndLogin = async (req, res) => {
       userId: user.userId,
       email: user.email,
       name: user.name,
-      surname: user.surname,
       dateOfBirth: user.dateOfBirth,
       role: user.role,
       token,
@@ -109,5 +107,53 @@ const verifyCodeAndLogin = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Confirms successful login via Google OAuth.
+ * The token is cleared after successful verification.
+ * @route   POST /api/auth/google/callback
+ * @access  Public
+ */
+export const handleGoogleCallback = async (req, res) => {
+  if (!req.user) {
+    return res.redirect("/login?error=google_auth_failed");
+  }
+
+  const user = req.user;
+
+  // Генеруємо JWT так само, як у твоїй email-системі
+  const token = generateToken(user._id);  // ти вже маєш цей генератор
+
+  // Можеш передати дані назад на фронтенд у вигляді редіректу з параметрами або JSON
+  // Наприклад, якщо твій фронтенд — React SPA, ти можеш редірект на frontend з token у query
+  const redirectUrl = process.env.FRONTEND_URL + `/auth/success?token=${token}`;
+  return res.redirect(redirectUrl);
+};
+
 export { sendVerificationCode, verifyCodeAndLogin };
 
+/**
+ * @desc    Return current user data
+ * @route   GET /api/auth/me
+ * @access  Private
+*/
+export const getCurrentUser = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Not authorized, no token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await User.findById(decoded.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("Error in getCurrentUser:", error);
+    res.status(401).json({ message: "Not authorized" });
+  }
+};

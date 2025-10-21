@@ -22,11 +22,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  surname: {
-    type: String,
-    default: ""
-  },
-  dateOfBirth: { type: Date, required: true },
+  dateOfBirth: { type: Date, required: false, default: null },
   role: {
     type: String,
     enum: ["admin", "carrier", "passenger"],

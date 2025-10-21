@@ -2,10 +2,12 @@
 import express from "express";
 import cors from "cors";
 import passport from "passport";
+import setupGooglePassport from "./config/passport.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import searchRoutes from './routes/searchRoutes.js';
+import 'dotenv/config';
 
 const app = express();
 
@@ -29,8 +31,8 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+setupGooglePassport();
 app.use(passport.initialize());
-//require('./config/passport')(passport);
 
 
 // Routes

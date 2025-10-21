@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import axios from "axios";
@@ -45,6 +45,33 @@ const AuthPage = () => {
     }
   };
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+
+    if (token) {
+      localStorage.setItem("userInfo", JSON.stringify({ token }));
+
+      axios
+        .get("/api/auth/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .then((res) => {
+          localStorage.setItem(
+            "userInfo",
+            JSON.stringify({ ...res.data, token })
+          );
+
+          navigate("/");
+        })
+        .catch((err) => {
+          console.error("Помилка авторизації:", err);
+          localStorage.removeItem("userInfo");
+          navigate("/login");
+        });
+    }
+  }, [navigate]);
+
   const renderEmailStep = () => (
     <form onSubmit={handleSendCode}>
       <h2 className="text-xl font-semibold mb-2 text-[#064d63]">
@@ -68,6 +95,19 @@ const AuthPage = () => {
         disabled={isLoading}
       >
         {isLoading ? "Sending..." : "Continue with email"}
+      </button>
+      <button
+        onClick={() => {
+          window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/google`;
+        }}
+        className="mt-4 w-full flex items-center justify-center gap-2 border border-gray-300 rounded-lg py-2 hover:bg-gray-50 transition"
+      >
+        <img
+          src="https://developers.google.com/identity/images/g-logo.png"
+          alt="Google"
+          className="w-5 h-5"
+        />
+        {isLoading ? "Sending..." : "Continue with Google"}
       </button>
     </form>
   );
