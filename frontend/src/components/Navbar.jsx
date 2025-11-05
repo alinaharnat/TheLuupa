@@ -90,6 +90,13 @@ export default function Navbar() {
                       >
                         Profile
                       </Link>
+                      <Link
+                        to="/my-tickets"
+                        className="block px-4 py-2 text-sm hover:bg-[#CDEEF2] transition"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        My Tickets
+                      </Link>
                       <button
                         onClick={handleLogout}
                         className="w-full text-left block px-4 py-2 text-sm hover:bg-[#CDEEF2] rounded-b-lg transition"
@@ -154,6 +161,12 @@ export default function Navbar() {
                   className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
                 >
                   Profile
+                </Link>
+                <Link
+                  to="/my-tickets"
+                  className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
+                >
+                  My Tickets
                 </Link>
                 <button
                   onClick={handleLogout}

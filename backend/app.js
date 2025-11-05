@@ -7,6 +7,7 @@ import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import searchRoutes from './routes/searchRoutes.js';
+import bookingRoutes from './routes/bookingRoutes.js';
 import 'dotenv/config';
 
 const app = express();
@@ -39,6 +40,7 @@ app.use(passport.initialize());
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 // Health check route
 app.get('/', (req, res) => {

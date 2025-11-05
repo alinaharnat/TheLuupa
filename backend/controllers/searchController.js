@@ -53,13 +53,15 @@ const searchTrips = async (req, res) => {
 
     // Get schedules for these buses on the specified date
     const busIds = buses.map(bus => bus._id);
-    const searchDate = new Date(date);
-    const startOfDay = new Date(searchDate.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(searchDate.setHours(23, 59, 59, 999));
+
+    // Parse date and create date range for comparison (in local timezone)
+    const [year, month, day] = date.split('-').map(Number);
+    const localStart = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const localEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
 
     const schedules = await Schedule.find({
       busId: { $in: busIds },
-      departureTime: { $gte: startOfDay, $lte: endOfDay }
+      departureTime: { $gte: localStart, $lte: localEnd }
     }).populate('busId');
 
     if (schedules.length === 0) {
