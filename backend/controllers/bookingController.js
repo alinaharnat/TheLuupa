@@ -7,7 +7,7 @@ import City from '../models/city.js';
 import Payment from '../models/payment.js';
 import User from '../models/user.js';
 import mongoose from 'mongoose';
-import { sendCancellationEmail } from '../config/email.js';
+import { sendCancellationEmail, sendBookingConfirmationEmail } from '../config/email.js';
 
 /**
  * @desc    Create new booking
@@ -112,17 +112,42 @@ const createBooking = async (req, res) => {
     const isSurpriseTrip = fullBooking.isSurprise;
     const destinationRevealed = fullBooking.destinationRevealed;
     const destinationCity = fullBooking.scheduleId.busId.routeId.cityId[fullBooking.scheduleId.busId.routeId.cityId.length - 1].name;
+    const route = fullBooking.scheduleId.busId.routeId;
+    const fromCity = route.cityId[0].name;
+    const bookingSeatNumbers = fullBooking.seatId.map(s => s.seatNumber);
+    
+    // Send booking confirmation email (don't wait for it to complete)
+    if (fullBooking.userId.email) {
+      sendBookingConfirmationEmail(fullBooking.userId.email, {
+        userName: fullBooking.userId.name || fullBooking.userId.email.split('@')[0],
+        bookingId: fullBooking._id.toString(),
+        from: fromCity,
+        to: destinationCity,
+        departureTime: fullBooking.scheduleId.departureTime,
+        arrivalTime: fullBooking.scheduleId.arrivalTime,
+        busNumber: fullBooking.scheduleId.busId.numberPlate,
+        seats: bookingSeatNumbers,
+        distance: route.distance,
+        totalAmount: totalAmount,
+        paymentMethod: paymentMethod.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        paymentStatus: payment[0].status,
+        isSurprise: isSurpriseTrip
+      }).catch(err => {
+        console.error('Error sending booking confirmation email:', err);
+        // Don't fail the request if email fails
+      });
+    }
     
     res.status(201).json({
       message: 'Booking created successfully',
       booking: {
         _id: fullBooking._id,
         status: fullBooking.status,
-        seats: fullBooking.seatId.map(s => s.seatNumber),
+        seats: bookingSeatNumbers,
         isSurprise: isSurpriseTrip,
         destinationRevealed: destinationRevealed,
         trip: {
-          from: fullBooking.scheduleId.busId.routeId.cityId[0].name,
+          from: fromCity,
           to: (isSurpriseTrip && !destinationRevealed) ? "???" : destinationCity,
           departureTime: fullBooking.scheduleId.departureTime,
           arrivalTime: fullBooking.scheduleId.arrivalTime,

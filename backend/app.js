@@ -21,8 +21,10 @@ const app = express();
 //app.use(express.urlencoded({ extended: true }));
 //app.use(express.json());
 
-// require('./config/cronJobs');
-// require('./config/cronJobs');
+import startSurpriseReminderCron from './config/cronJobs.js';
+
+// Start cron jobs
+startSurpriseReminderCron();
 
 // Middleware
 app.use(cors({
