@@ -10,6 +10,7 @@ import {
   Users,
   XCircle,
   User,
+  Eye,
 } from "lucide-react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
@@ -21,6 +22,7 @@ const MyTicketsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [cancellingId, setCancellingId] = useState(null);
+  const [revealingId, setRevealingId] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -101,6 +103,30 @@ const MyTicketsPage = () => {
       alert(err.response?.data?.message || "Failed to cancel booking");
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  const handleRevealDestination = async (bookingId) => {
+    const userInfo = localStorage.getItem("userInfo");
+    if (!userInfo) return;
+
+    const token = JSON.parse(userInfo).token;
+    if (!token) return;
+
+    setRevealingId(bookingId);
+
+    try {
+      await axios.put(`/api/bookings/${bookingId}/reveal-destination`, {}, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      fetchBookings();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to reveal destination");
+    } finally {
+      setRevealingId(null);
     }
   };
 
@@ -276,13 +302,38 @@ const MyTicketsPage = () => {
 
                         <div className="flex items-start gap-3 text-sm">
                           <MapPin className="w-5 h-5 text-[#096B8A] mt-0.5" />
-                          <div>
+                          <div className="flex-1">
                             <p className="font-medium">
                               {booking.trip.from} → {booking.trip.to}
                             </p>
-                            <p className="text-gray-500">
-                              {booking.trip.distance} km
-                            </p>
+                            {booking.trip.distance !== null && booking.trip.distance !== undefined && (
+                              <p className="text-gray-500">
+                                {booking.trip.distance} km
+                              </p>
+                            )}
+                            {booking.isSurprise && !booking.destinationRevealed && (
+                              <div className="mt-2">
+                                {booking.canRevealDestination ? (
+                                  <button
+                                    onClick={() => handleRevealDestination(booking._id)}
+                                    disabled={revealingId === booking._id}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-[#096B8A] text-white rounded-md hover:bg-[#064d63] transition-colors text-xs font-medium disabled:opacity-50"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    {revealingId === booking._id ? "Revealing..." : "Reveal Destination"}
+                                  </button>
+                                ) : (
+                                  <p className="text-xs text-gray-500 italic">
+                                    Destination will be available 5 hours before departure
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                            {booking.isSurprise && (
+                              <span className="inline-block mt-2 text-xs bg-[#096B8A] text-white px-2 py-1 rounded-full">
+                                🎁 Surprise Trip
+                              </span>
+                            )}
                           </div>
                         </div>
 

@@ -40,7 +40,11 @@ const BookingPage = () => {
   useEffect(() => {
     const fetchTripDetails = async () => {
       try {
-        const { data } = await axios.get(`/api/bookings/schedule/${scheduleId}`);
+        const isSurprise = searchParams.get("surprise") === "true";
+        const url = isSurprise 
+          ? `/api/bookings/schedule/${scheduleId}?surprise=true`
+          : `/api/bookings/schedule/${scheduleId}`;
+        const { data } = await axios.get(url);
         setTripDetails(data);
       } catch (err) {
         console.error("Failed to fetch trip details:", err);
@@ -48,7 +52,7 @@ const BookingPage = () => {
     };
 
     fetchTripDetails();
-  }, [scheduleId]);
+  }, [scheduleId, searchParams]);
 
   const toggleSeat = (seatNumber) => {
     if (selectedSeats.includes(seatNumber)) {
@@ -82,12 +86,14 @@ const BookingPage = () => {
     setError("");
 
     try {
+      const isSurprise = searchParams.get("surprise") === "true";
       const { data } = await axios.post(
         "/api/bookings",
         {
           scheduleId,
           seatNumbers: selectedSeats,
           paymentMethod,
+          isSurprise: isSurprise,
         },
         {
           headers: {
@@ -145,8 +151,13 @@ const BookingPage = () => {
                     <div className="flex items-center gap-3">
                       <MapPin className="w-5 h-5 text-[#096B8A]" />
                       <span>
-                        {tripDetails.route.from} → {tripDetails.route.to}
+                        {tripDetails.route.from} → {tripDetails.isSurprise ? "???" : tripDetails.route.to}
                       </span>
+                      {tripDetails.isSurprise && (
+                        <span className="text-xs bg-[#096B8A] text-white px-2 py-1 rounded-full">
+                          🎁 Surprise Trip
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
                       <Clock className="w-5 h-5 text-[#096B8A]" />

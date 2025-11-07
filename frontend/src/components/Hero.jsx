@@ -144,6 +144,12 @@ export default function Hero() {
     <h1 className="mt-8 sm:mt-16 text-xl sm:text-2xl md:text-3xl font-medium text-white">
       Where travel dreams hit the road!
     </h1>
+    <button
+  onClick={() => navigate("/surprise")}
+  className="bg-orange-500 text-white rounded-full px-6 py-3"
+>
+  🎁 Surprise me!
+</button>
   </div>
 </section>
 

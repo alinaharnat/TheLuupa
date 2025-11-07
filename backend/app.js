@@ -8,6 +8,9 @@ import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import searchRoutes from './routes/searchRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
+import surpriseRoutes from './routes/surprise.js';
+import cityRoutes from './routes/cityRoutes.js';
+import countryRoutes from './routes/countryRoutes.js';
 import 'dotenv/config';
 
 const app = express();
@@ -41,6 +44,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use("/api/surprise", surpriseRoutes);
+
+app.use("/api/cities", cityRoutes);
+app.use("/api/countries", countryRoutes);
 
 // Health check route
 app.get('/', (req, res) => {

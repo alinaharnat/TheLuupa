@@ -9,6 +9,8 @@ const bookingSchema = new mongoose.Schema({
     enum: ["pending", "confirmed", "cancelled"],
     default: "pending",
   },
+  isSurprise: { type: Boolean, default: false }, // Flag to indicate if this is a surprise trip
+  destinationRevealed: { type: Boolean, default: false }, // Flag to track if destination has been revealed
 }, { timestamps: true });
 
 export default mongoose.model("Booking", bookingSchema);

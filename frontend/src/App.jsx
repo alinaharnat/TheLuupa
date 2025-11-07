@@ -5,7 +5,8 @@ import ProfilePage from "./pages/ProfilePage";
 import SearchResultsPage from "./pages/SearchResultsPage";
 import BookingPage from "./pages/BookingPage";
 import MyTicketsPage from "./pages/MyTicketsPage";
-
+import SurprisePage from "./pages/SurprisePage";
+import Navbar from "./components/Navbar";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/search" element={<SearchResultsPage />} />
         <Route path="/booking/:scheduleId" element={<BookingPage />} />
         <Route path="/my-tickets" element={<MyTicketsPage />} />
+        <Route path="/surprise" element={<SurprisePage />} />
       </Routes>
     </Router>
   );

@@ -5,7 +5,8 @@ import {
   getBookingById,
   cancelBooking,
   getAvailableSeats,
-  getScheduleDetails
+  getScheduleDetails,
+  revealDestination
 } from '../controllers/bookingController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
@@ -20,5 +21,6 @@ router.post('/', protect, createBooking);
 router.get('/', protect, getUserBookings);
 router.get('/:id', protect, getBookingById);
 router.put('/:id/cancel', protect, cancelBooking);
+router.put('/:id/reveal-destination', protect, revealDestination);
 
 export default router;
