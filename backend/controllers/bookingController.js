@@ -5,7 +5,9 @@ import Bus from '../models/bus.js';
 import Route from '../models/route.js';
 import City from '../models/city.js';
 import Payment from '../models/payment.js';
+import User from '../models/user.js';
 import mongoose from 'mongoose';
+import { sendCancellationEmail } from '../config/email.js';
 
 /**
  * @desc    Create new booking
@@ -302,7 +304,18 @@ const cancelBooking = async (req, res) => {
     const userId = req.user._id;
 
     const booking = await Booking.findById(bookingId)
-      .populate('scheduleId')
+      .populate({
+        path: 'scheduleId',
+        populate: {
+          path: 'busId',
+          populate: {
+            path: 'routeId',
+            populate: { path: 'cityId' }
+          }
+        }
+      })
+      .populate('userId', 'name email')
+      .populate('seatId', 'seatNumber')
       .session(session);
 
     if (!booking) {
@@ -311,7 +324,7 @@ const cancelBooking = async (req, res) => {
     }
 
     // Проверяем, что бронирование принадлежит пользователю
-    if (booking.userId.toString() !== userId.toString()) {
+    if (booking.userId._id.toString() !== userId.toString()) {
       await session.abortTransaction();
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -329,18 +342,50 @@ const cancelBooking = async (req, res) => {
       return res.status(400).json({ message: 'Cannot cancel booking less than 2 hours before departure' });
     }
 
+    // Get payment details before updating
+    const payment = await Payment.findOne({ bookingId: booking._id }).session(session);
+    const refundAmount = payment ? payment.amount : 0;
+    const paymentMethod = payment ? payment.method : 'credit_card';
+
     // Отменяем бронирование
     booking.status = 'cancelled';
     await booking.save({ session });
 
     // Обновляем статус платежа
-    await Payment.findOneAndUpdate(
-      { bookingId: booking._id },
-      { status: 'refunded' },
-      { session }
-    );
+    if (payment) {
+      await Payment.findOneAndUpdate(
+        { bookingId: booking._id },
+        { status: 'refunded' },
+        { session }
+      );
+    }
 
     await session.commitTransaction();
+
+    // Prepare booking details for email
+    const route = booking.scheduleId.busId.routeId;
+    const fromCity = route.cityId[0].name;
+    const toCity = route.cityId[route.cityId.length - 1].name;
+    const seats = booking.seatId.map(s => s.seatNumber);
+
+    // Send cancellation email (don't wait for it to complete)
+    if (booking.userId.email) {
+      sendCancellationEmail(booking.userId.email, {
+        userName: booking.userId.name || booking.userId.email.split('@')[0],
+        bookingId: booking._id.toString(),
+        from: fromCity,
+        to: toCity,
+        departureTime: booking.scheduleId.departureTime,
+        arrivalTime: booking.scheduleId.arrivalTime,
+        busNumber: booking.scheduleId.busId.numberPlate,
+        seats: seats,
+        refundAmount: refundAmount,
+        paymentMethod: paymentMethod.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+      }).catch(err => {
+        console.error('Error sending cancellation email:', err);
+        // Don't fail the request if email fails
+      });
+    }
 
     res.json({
       message: 'Booking cancelled successfully',
