@@ -11,6 +11,7 @@ import bookingRoutes from './routes/bookingRoutes.js';
 import surpriseRoutes from './routes/surprise.js';
 import cityRoutes from './routes/cityRoutes.js';
 import countryRoutes from './routes/countryRoutes.js';
+import homeRoutes from './routes/homeRoutes.js';
 import 'dotenv/config';
 
 const app = express();
@@ -50,6 +51,7 @@ app.use("/api/surprise", surpriseRoutes);
 
 app.use("/api/cities", cityRoutes);
 app.use("/api/countries", countryRoutes);
+app.use("/api/home", homeRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
