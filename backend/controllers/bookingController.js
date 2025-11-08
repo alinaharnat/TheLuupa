@@ -1,11 +1,7 @@
 import Booking from '../models/booking.js';
 import Schedule from '../models/schedule.js';
 import Seat from '../models/seat.js';
-import Bus from '../models/bus.js';
-import Route from '../models/route.js';
-import City from '../models/city.js';
 import Payment from '../models/payment.js';
-import User from '../models/user.js';
 import mongoose from 'mongoose';
 import { sendCancellationEmail, sendBookingConfirmationEmail } from '../config/email.js';
 
@@ -77,7 +73,7 @@ const createBooking = async (req, res) => {
       userId: userId,
       scheduleId: scheduleId,
       seatId: seats.map(s => s._id),
-      status: 'pending',
+      status: 'confirmed',
       isSurprise: isSurprise === true || isSurprise === 'true',
       destinationRevealed: false
     }], { session });

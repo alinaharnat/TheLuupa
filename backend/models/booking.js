@@ -6,8 +6,8 @@ const bookingSchema = new mongoose.Schema({
   seatId: [{ type: mongoose.Schema.Types.ObjectId, ref: "Seat", required: true }], // масив заброньованих місць
   status: {
     type: String,
-    enum: ["pending", "confirmed", "cancelled"],
-    default: "pending",
+    enum: ["completed", "confirmed", "cancelled"],
+    default: "confirmed",
   },
   isSurprise: { type: Boolean, default: false }, // Flag to indicate if this is a surprise trip
   destinationRevealed: { type: Boolean, default: false }, // Flag to track if destination has been revealed

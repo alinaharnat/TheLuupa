@@ -12,15 +12,11 @@ import surpriseRoutes from './routes/surprise.js';
 import cityRoutes from './routes/cityRoutes.js';
 import countryRoutes from './routes/countryRoutes.js';
 import homeRoutes from './routes/homeRoutes.js';
-import 'dotenv/config';
+import paymentRoutes from './routes/paymentRoutes.js';
 
 const app = express();
 
-//app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
-
-// Додаємо middleware для парсингу текстових полів із FormData
-//app.use(express.urlencoded({ extended: true }));
-//app.use(express.json());
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 import startSurpriseReminderCron from './config/cronJobs.js';
 
@@ -48,6 +44,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use("/api/surprise", surpriseRoutes);
+app.use('/api/payments', paymentRoutes);
 
 app.use("/api/cities", cityRoutes);
 app.use("/api/countries", countryRoutes);

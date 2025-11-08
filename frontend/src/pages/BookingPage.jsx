@@ -20,6 +20,13 @@ const BookingPage = () => {
   const [paymentMethod, setPaymentMethod] = useState("credit_card");
 
   useEffect(() => {
+    const errorParam = searchParams.get("error");
+    if (errorParam === "payment_failed") {
+      setError("Payment failed. Please try again.");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     const fetchSeats = async () => {
       setIsLoading(true);
       setError("");
@@ -87,13 +94,15 @@ const BookingPage = () => {
 
     try {
       const isSurprise = searchParams.get("surprise") === "true";
+
+      // 1️⃣ Створюємо бронювання (pending)
       const { data } = await axios.post(
         "/api/bookings",
         {
           scheduleId,
           seatNumbers: selectedSeats,
-          paymentMethod,
-          isSurprise: isSurprise,
+          paymentMethod: "stripe", // Примусово через Stripe
+          isSurprise,
         },
         {
           headers: {
@@ -102,9 +111,25 @@ const BookingPage = () => {
         }
       );
 
-      navigate("/my-tickets");
+      const bookingId = data.booking._id;
+
+      // 2️⃣ Створюємо Stripe Checkout Session
+      const sessionRes = await axios.post(
+        "/api/payments/create-session",
+        { bookingId },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // 3️⃣ Перенаправлення на Stripe Checkout
+      window.location.href = sessionRes.data.url;
+
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to create booking");
+      console.error("Booking or Stripe error:", err);
+      setError(err.response?.data?.message || "Failed to create booking or payment session");
     } finally {
       setIsBooking(false);
     }
