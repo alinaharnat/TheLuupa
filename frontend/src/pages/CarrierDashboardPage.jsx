@@ -77,17 +77,20 @@ const CarrierDashboardPage = () => {
           {/* Quick Actions */}
           <h2 className="text-xl font-semibold text-[#064d63] mb-4">Management</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow-md p-6 opacity-50 cursor-not-allowed">
+            <Link
+              to="/carrier/buses"
+              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+            >
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-gray-400 rounded-full">
+                <div className="p-3 bg-[#096B8A] rounded-full">
                   <Bus className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-500">My Buses</h3>
-                  <p className="text-gray-400 text-sm">Coming soon...</p>
+                  <h3 className="text-lg font-semibold text-[#064d63]">My Buses</h3>
+                  <p className="text-gray-500 text-sm">Manage your fleet</p>
                 </div>
               </div>
-            </div>
+            </Link>
 
             <div className="bg-white rounded-lg shadow-md p-6 opacity-50 cursor-not-allowed">
               <div className="flex items-center gap-4">
@@ -119,7 +122,7 @@ const CarrierDashboardPage = () => {
             <Bus className="w-12 h-12 text-[#096B8A] mx-auto mb-3" />
             <h3 className="text-lg font-semibold text-gray-700">Welcome to Carrier Dashboard</h3>
             <p className="text-gray-500 mt-2">
-              Carrier management features are coming soon. You will be able to manage your buses, routes, and schedules here.
+              Start by adding your buses. Routes and schedules features are coming soon.
             </p>
           </div>
         </div>

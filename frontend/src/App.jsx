@@ -8,6 +8,7 @@ import SurprisePage from "./pages/SurprisePage";
 import BecomeCarrierPage from "./pages/BecomeCarrierPage";
 import AdminCarrierApplicationsPage from "./pages/AdminCarrierApplicationsPage";
 import CarrierCompanyPage from "./pages/CarrierCompanyPage";
+import MyBusesPage from "./pages/MyBusesPage";
 import HomeRouter from "./components/HomeRouter";
 import Navbar from "./components/Navbar";
 
@@ -28,6 +29,7 @@ function App() {
         <Route path="/become-carrier" element={<BecomeCarrierPage />} />
         <Route path="/admin/carrier-applications" element={<AdminCarrierApplicationsPage />} />
         <Route path="/carrier/company" element={<CarrierCompanyPage />} />
+        <Route path="/carrier/buses" element={<MyBusesPage />} />
       </Routes>
     </Router>
   );

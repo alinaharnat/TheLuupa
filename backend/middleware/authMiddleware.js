@@ -51,4 +51,16 @@ const admin = (req, res, next) => {
   }
 };
 
-export { protect, admin };
+/**
+ * Middleware to check if user is carrier
+ * Must be used after protect middleware
+ */
+const carrier = (req, res, next) => {
+  if (req.user && req.user.role === 'carrier') {
+    next();
+  } else {
+    res.status(403).json({ message: 'Not authorized as carrier' });
+  }
+};
+
+export { protect, admin, carrier };

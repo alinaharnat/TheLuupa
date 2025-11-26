@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Building2, Phone, FileText, Mail, Calendar, Bus, Route, Users, TrendingUp } from "lucide-react";
+import axios from "axios";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { refreshUserData } from "../utils/refreshUser";
@@ -8,6 +9,12 @@ import { refreshUserData } from "../utils/refreshUser";
 const CarrierCompanyPage = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [stats, setStats] = useState({
+    buses: 0,
+    routes: 0,
+    trips: 0,
+    passengers: 0,
+  });
 
   useEffect(() => {
     const loadUser = async () => {
@@ -21,6 +28,7 @@ const CarrierCompanyPage = () => {
         }
 
         setUser(userData);
+        fetchStats(userData.token);
 
         // Refresh from server
         const freshData = await refreshUserData();
@@ -37,6 +45,20 @@ const CarrierCompanyPage = () => {
     };
     loadUser();
   }, [navigate]);
+
+  const fetchStats = async (token) => {
+    try {
+      const { data: buses } = await axios.get("/api/buses", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setStats((prev) => ({
+        ...prev,
+        buses: buses.length,
+      }));
+    } catch (err) {
+      console.error("Error fetching stats:", err);
+    }
+  };
 
   if (!user) {
     return (
@@ -117,9 +139,9 @@ const CarrierCompanyPage = () => {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <Bus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-400">-</p>
-                <p className="text-xs text-gray-400">Buses</p>
+                <Bus className="w-8 h-8 text-[#096B8A] mx-auto mb-2" />
+                <p className="text-2xl font-bold text-[#064d63]">{stats.buses}</p>
+                <p className="text-xs text-gray-500">Buses</p>
               </div>
 
               <div className="text-center p-4 bg-gray-50 rounded-lg">
@@ -140,10 +162,6 @@ const CarrierCompanyPage = () => {
                 <p className="text-xs text-gray-400">Passengers</p>
               </div>
             </div>
-
-            <p className="text-center text-gray-400 text-sm mt-4">
-              Statistics will be available when you add buses and routes
-            </p>
           </div>
         </div>
       </div>
