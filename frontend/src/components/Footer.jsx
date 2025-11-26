@@ -1,9 +1,17 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Mail, Phone, MapPin } from "lucide-react";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("userInfo");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
 
   return (
     <footer className="bg-[#096B8A] text-white mt-auto">
@@ -32,14 +40,16 @@ export default function Footer() {
                   Home
                 </Link>
               </li>
-              <li>
-                <Link
-                  to="/partner"
-                  className="text-[#CDEEF2] hover:text-white transition text-sm"
-                >
-                  Become a Partner
-                </Link>
-              </li>
+              {(!user || (user.role !== "carrier" && user.role !== "admin")) && (
+                <li>
+                  <Link
+                    to="/become-carrier"
+                    className="text-[#CDEEF2] hover:text-white transition text-sm"
+                  >
+                    Become a Carrier
+                  </Link>
+                </li>
+              )}
               <li>
                 <Link
                   to="/profile"

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit2, Save, X } from "lucide-react";
+import { ArrowLeft, Edit2, Save, X, Truck } from "lucide-react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { refreshUserData } from "../utils/refreshUser";
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -20,20 +21,34 @@ const ProfilePage = () => {
     email: "",
   });
 
+  const updateFormData = (userData) => {
+    setFormData({
+      name: userData.name || "",
+      surname: userData.surname || "",
+      dateOfBirth: userData.dateOfBirth ? new Date(userData.dateOfBirth).toISOString().split("T")[0] : "",
+      email: userData.email || "",
+    });
+  };
+
   useEffect(() => {
-    const storedUser = localStorage.getItem("userInfo");
-    if (storedUser) {
-      const userData = JSON.parse(storedUser);
-      setUser(userData);
-      setFormData({
-        name: userData.name || "",
-        surname: userData.surname || "",
-        dateOfBirth: userData.dateOfBirth ? new Date(userData.dateOfBirth).toISOString().split("T")[0] : "",
-        email: userData.email || "",
-      });
-    } else {
-      navigate("/login");
-    }
+    const loadUser = async () => {
+      const storedUser = localStorage.getItem("userInfo");
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        updateFormData(userData);
+
+        // Refresh from server
+        const freshData = await refreshUserData();
+        if (freshData) {
+          setUser(freshData);
+          updateFormData(freshData);
+        }
+      } else {
+        navigate("/login");
+      }
+    };
+    loadUser();
   }, [navigate]);
 
   const handleInputChange = (e) => {
@@ -216,6 +231,18 @@ const ProfilePage = () => {
                     <p className="text-gray-900 p-3 bg-gray-50 rounded-md capitalize">
                       {user.role || "passenger"}
                     </p>
+                  </div>
+                )}
+
+                {!isEditing && user.role === "passenger" && (
+                  <div className="pt-4 border-t border-gray-200">
+                    <button
+                      onClick={() => navigate("/become-carrier")}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#096B8A] text-white rounded-md hover:bg-[#064d63] transition-colors font-medium"
+                    >
+                      <Truck className="w-5 h-5" />
+                      Become a Carrier
+                    </button>
                   </div>
                 )}
               </div>

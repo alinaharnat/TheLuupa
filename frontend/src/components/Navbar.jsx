@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Menu, X, User } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { refreshUserData } from "../utils/refreshUser";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -9,12 +10,20 @@ export default function Navbar() {
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
-  // Load user info from localStorage on mount
+  // Load user info from localStorage on mount and refresh
   useEffect(() => {
-    const storedUser = localStorage.getItem("userInfo");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    const loadUser = async () => {
+      const storedUser = localStorage.getItem("userInfo");
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+        // Refresh from server
+        const freshData = await refreshUserData();
+        if (freshData) {
+          setUser(freshData);
+        }
+      }
+    };
+    loadUser();
   }, []);
 
   // Close dropdown when clicking outside
@@ -64,12 +73,14 @@ export default function Navbar() {
                 Home
               </Link>
 
-              <Link
-                to="/partner"
-                className="text-white px-4 py-2 rounded-md text-sm font-medium hover:text-[#CDEEF2] transition"
-              >
-                Become a Partner
-              </Link>
+              {(!user || (user.role !== "carrier" && user.role !== "admin")) && (
+                <Link
+                  to="/become-carrier"
+                  className="text-white px-4 py-2 rounded-md text-sm font-medium hover:text-[#CDEEF2] transition"
+                >
+                  Become a Carrier
+                </Link>
+              )}
 
               {user ? (
                 <div className="relative" ref={dropdownRef}>
@@ -90,13 +101,24 @@ export default function Navbar() {
                       >
                         Profile
                       </Link>
-                      <Link
-                        to="/my-tickets"
-                        className="block px-4 py-2 text-sm hover:bg-[#CDEEF2] transition"
-                        onClick={() => setDropdownOpen(false)}
-                      >
-                        My Tickets
-                      </Link>
+                      {user.role === "passenger" && (
+                        <Link
+                          to="/my-tickets"
+                          className="block px-4 py-2 text-sm hover:bg-[#CDEEF2] transition"
+                          onClick={() => setDropdownOpen(false)}
+                        >
+                          My Tickets
+                        </Link>
+                      )}
+                      {user.role === "admin" && (
+                        <Link
+                          to="/admin/carrier-applications"
+                          className="block px-4 py-2 text-sm hover:bg-[#CDEEF2] transition"
+                          onClick={() => setDropdownOpen(false)}
+                        >
+                          Admin Panel
+                        </Link>
+                      )}
                       <button
                         onClick={handleLogout}
                         className="w-full text-left block px-4 py-2 text-sm hover:bg-[#CDEEF2] rounded-b-lg transition"
@@ -147,12 +169,14 @@ export default function Navbar() {
             >
               Home
             </Link>
-            <Link
-              to="/partner"
-              className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
-            >
-              Become a Partner
-            </Link>
+            {(!user || (user.role !== "carrier" && user.role !== "admin")) && (
+              <Link
+                to="/become-carrier"
+                className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
+              >
+                Become a Carrier
+              </Link>
+            )}
 
             {user ? (
               <>
@@ -162,12 +186,22 @@ export default function Navbar() {
                 >
                   Profile
                 </Link>
-                <Link
-                  to="/my-tickets"
-                  className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
-                >
-                  My Tickets
-                </Link>
+                {user.role === "passenger" && (
+                  <Link
+                    to="/my-tickets"
+                    className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
+                  >
+                    My Tickets
+                  </Link>
+                )}
+                {user.role === "admin" && (
+                  <Link
+                    to="/admin/carrier-applications"
+                    className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
+                  >
+                    Admin Panel
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
                   className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium w-full text-left"

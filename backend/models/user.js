@@ -28,6 +28,19 @@ const userSchema = new mongoose.Schema({
     enum: ["admin", "carrier", "passenger"],
     default: "passenger",
   },
+  // Carrier-specific fields
+  companyName: {
+    type: String,
+    trim: true
+  },
+  phoneNumber: {
+    type: String,
+    trim: true
+  },
+  licenseNumber: {
+    type: String,
+    trim: true
+  },
   googleId: {
     type: String,
     sparse: true

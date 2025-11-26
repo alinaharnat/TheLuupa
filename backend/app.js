@@ -13,6 +13,7 @@ import cityRoutes from './routes/cityRoutes.js';
 import countryRoutes from './routes/countryRoutes.js';
 import homeRoutes from './routes/homeRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use('/api/payments', paymentRoutes);
 app.use("/api/cities", cityRoutes);
 app.use("/api/countries", countryRoutes);
 app.use("/api/home", homeRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Health check route
 app.get('/', (req, res) => {

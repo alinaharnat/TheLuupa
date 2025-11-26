@@ -298,5 +298,77 @@ const sendSurpriseReminderEmail = async (email, bookingDetails) => {
   }
 };
 
-export { sendVerificationEmail, sendCancellationEmail, sendBookingConfirmationEmail, sendSurpriseReminderEmail };
+const sendCarrierApplicationStatusEmail = async (email, applicationDetails) => {
+  try {
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+    const isApproved = applicationDetails.status === 'approved';
+    const statusColor = isApproved ? '#4caf50' : '#f44336';
+    const statusBgColor = isApproved ? '#e8f5e9' : '#ffebee';
+    const statusText = isApproved ? 'Approved' : 'Rejected';
+
+    const msg = {
+      to: email,
+      from: process.env.EMAIL_FROM,
+      subject: `Carrier Application ${statusText} - TheLùůpa`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+          <div style="background-color: #096B8A; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0;">TheLùůpa</h1>
+          </div>
+
+          <div style="padding: 30px; background-color: #f9f9f9;">
+            <h2 style="color: #064d63; margin-top: 0;">Carrier Application Update</h2>
+
+            <p>Dear ${applicationDetails.userName},</p>
+
+            <div style="background-color: ${statusBgColor}; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${statusColor};">
+              <h3 style="color: ${statusColor}; margin-top: 0; text-align: center; font-size: 24px;">
+                ${isApproved ? '✅' : '❌'} Application ${statusText}
+              </h3>
+              ${isApproved
+                ? '<p style="text-align: center;">Congratulations! You are now a carrier on TheLùůpa platform.</p>'
+                : '<p style="text-align: center;">Unfortunately, your application has been rejected.</p>'
+              }
+            </div>
+
+            <div style="background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #096B8A;">
+              <h3 style="color: #064d63; margin-top: 0;">Application Details:</h3>
+              <p><strong>Company Name:</strong> ${applicationDetails.companyName}</p>
+              <p><strong>Phone Number:</strong> ${applicationDetails.phoneNumber}</p>
+              <p><strong>License Number:</strong> ${applicationDetails.licenseNumber}</p>
+            </div>
+
+            ${isApproved
+              ? '<p>You can now start adding your buses and routes to offer transportation services on our platform.</p>'
+              : '<p>If you believe this decision was made in error or have additional documentation, please contact our support team.</p>'
+            }
+
+            <p>Thank you for your interest in TheLùůpa!</p>
+
+            <p style="margin-top: 30px;">
+              Best regards,<br>
+              The TheLùůpa Team
+            </p>
+          </div>
+
+          <div style="background-color: #f0f0f0; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+            <p style="margin: 0;">This is an automated email. Please do not reply to this message.</p>
+          </div>
+        </div>
+      `,
+    };
+
+    await sgMail.send(msg);
+
+  } catch (error) {
+    console.error('Error sending carrier application status email:', error.message);
+    if (error.response) {
+      console.error('SendGrid Response Body:', error.response.body);
+    }
+    console.error('Failed to send carrier application status email.');
+  }
+};
+
+export { sendVerificationEmail, sendCancellationEmail, sendBookingConfirmationEmail, sendSurpriseReminderEmail, sendCarrierApplicationStatusEmail };
 

@@ -97,6 +97,9 @@ const verifyCodeAndLogin = async (req, res) => {
       name: user.name,
       dateOfBirth: user.dateOfBirth,
       role: user.role,
+      companyName: user.companyName,
+      phoneNumber: user.phoneNumber,
+      licenseNumber: user.licenseNumber,
       token,
       isNewUser, // Useful for frontend logic, e.g., redirect to a profile completion page
     });
