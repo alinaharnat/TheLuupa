@@ -33,19 +33,73 @@ export const createCheckoutSession = async (req, res) => {
         },
         quantity: booking.seatId.length
       }],
-      // ✅ якщо успішно — перейти до всіх бронювань
-      success_url: `${process.env.FRONTEND_URL}/my-tickets`,
-      cancel_url: `${process.env.FRONTEND_URL}/surprise?error=payment_failed`,
+      // Pass session_id to success URL for verification
+      success_url: `${process.env.FRONTEND_URL}/my-tickets?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}/my-tickets?payment_cancelled=true`,
       metadata: {
         bookingId: bookingId,
         userId: userId.toString()
       }
     });
 
+    // Store session ID in payment for verification
+    payment.stripeSessionId = session.id;
+    await payment.save();
+
     res.json({ url: session.url });
   } catch (error) {
     console.error('Create checkout session error:', error);
     res.status(500).json({ message: 'Stripe session creation failed' });
+  }
+};
+
+/**
+ * @desc Verify payment after Stripe redirect (for localhost without webhooks)
+ * @route POST /api/payments/verify
+ * @access Private
+ */
+export const verifyPayment = async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({ message: 'Session ID required' });
+    }
+
+    // Find payment by session ID
+    const payment = await Payment.findOne({ stripeSessionId: sessionId });
+    if (!payment) {
+      return res.status(404).json({ message: 'Payment not found' });
+    }
+
+    // If already processed, return current status
+    if (payment.status === 'successful') {
+      return res.json({ status: 'already_confirmed', payment });
+    }
+
+    // Retrieve session from Stripe to verify payment
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (session.payment_status === 'paid') {
+      // Update payment and booking status
+      payment.status = 'successful';
+      await payment.save();
+
+      await Booking.findByIdAndUpdate(payment.bookingId, { status: 'confirmed' });
+
+      console.log(`✅ Payment verified for booking ${payment.bookingId}`);
+      return res.json({ status: 'confirmed', payment });
+    } else if (session.status === 'expired') {
+      payment.status = 'failed';
+      await payment.save();
+      await Booking.findByIdAndUpdate(payment.bookingId, { status: 'failed' });
+      return res.json({ status: 'expired', payment });
+    }
+
+    return res.json({ status: session.payment_status, payment });
+  } catch (error) {
+    console.error('Verify payment error:', error);
+    res.status(500).json({ message: 'Payment verification failed' });
   }
 };
 

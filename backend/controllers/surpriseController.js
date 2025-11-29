@@ -20,24 +20,23 @@ export const searchSurprise = async (req, res) => {
     endOfDay.setHours(23, 59, 59, 999);
 
     let schedules = await Schedule.find({
-      departureTime: { 
+      departureTime: {
         $gte: startOfDay,
         $lte: endOfDay
       },
       ...(maxPrice && { price: { $lte: maxPrice } }),
-    }).populate({
-      path: "busId",
-      populate: {
+    })
+      .populate("busId")
+      .populate({
         path: "routeId",
         populate: { path: "cityId" },
-      },
-    });
+      });
 
     // Фільтр: маршрут починається з обраного міста
     // Extract city name from the "from" field (could be "City, Country" or just "City")
     const cityName = from.split(',')[0].trim().toLowerCase();
     schedules = schedules.filter((schedule) => {
-      const cities = schedule.busId?.routeId?.cityId;
+      const cities = schedule.routeId?.cityId;
       if (!cities || cities.length === 0) return false;
       return cities[0].name.toLowerCase() === cityName;
     });
@@ -72,6 +71,7 @@ export const searchSurprise = async (req, res) => {
     // 🎁 Вибираємо випадковий елемент зі списку
     const randomTrip = schedules[Math.floor(Math.random() * schedules.length)];
 
+    const route = randomTrip.routeId;
     return res.json({
       message: "Surprise trip found!",
       trip: {
@@ -80,8 +80,8 @@ export const searchSurprise = async (req, res) => {
         arrivalTime: randomTrip.arrivalTime,
         price: randomTrip.price,
         busNumber: randomTrip.busId.numberPlate,
-        from: randomTrip.busId.routeId.cityId[0].name,
-        to: randomTrip.busId.routeId.cityId[randomTrip.busId.routeId.cityId.length - 1].name,
+        from: route.cityId[0].name,
+        to: route.cityId[route.cityId.length - 1].name,
       },
     });
   } catch (error) {

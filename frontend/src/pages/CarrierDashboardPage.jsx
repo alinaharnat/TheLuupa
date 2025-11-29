@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Bus, Route, Calendar, Building2, ChevronRight } from "lucide-react";
+import { Bus, Route, Calendar, Building2, ChevronRight, Ticket } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { refreshUserData } from "../utils/refreshUser";
@@ -76,7 +76,7 @@ const CarrierDashboardPage = () => {
 
           {/* Quick Actions */}
           <h2 className="text-xl font-semibold text-[#064d63] mb-4">Management</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Link
               to="/carrier/buses"
               className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
@@ -118,6 +118,21 @@ const CarrierDashboardPage = () => {
                 <div>
                   <h3 className="text-lg font-semibold text-[#064d63]">Schedules</h3>
                   <p className="text-gray-500 text-sm">Manage trip schedules</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link
+              to="/carrier/bookings"
+              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-[#096B8A] rounded-full">
+                  <Ticket className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-[#064d63]">Bookings</h3>
+                  <p className="text-gray-500 text-sm">View all bookings</p>
                 </div>
               </div>
             </Link>

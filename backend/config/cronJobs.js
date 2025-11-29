@@ -1,5 +1,46 @@
 import Booking from '../models/booking.js';
+import Payment from '../models/payment.js';
 import { sendSurpriseReminderEmail } from './email.js';
+
+/**
+ * Clean up expired pending bookings
+ * Runs every minute to check for bookings that have expired
+ */
+const cleanupExpiredBookings = async () => {
+  try {
+    const now = new Date();
+
+    // Find all expired pending bookings
+    const expiredBookings = await Booking.find({
+      status: 'pending',
+      expiresAt: { $lte: now }
+    });
+
+    if (expiredBookings.length > 0) {
+      console.log(`Found ${expiredBookings.length} expired pending bookings to clean up`);
+
+      for (const booking of expiredBookings) {
+        try {
+          // Update booking status to expired
+          booking.status = 'expired';
+          await booking.save();
+
+          // Update payment status to failed
+          await Payment.findOneAndUpdate(
+            { bookingId: booking._id },
+            { status: 'failed' }
+          );
+
+          console.log(`Expired booking ${booking._id} - seats released`);
+        } catch (error) {
+          console.error(`Error expiring booking ${booking._id}:`, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error in cleanupExpiredBookings:', error);
+  }
+};
 
 /**
  * Check for surprise trips that are 3 hours before departure
@@ -23,13 +64,10 @@ const checkSurpriseReminders = async () => {
       .populate('userId', 'name email')
       .populate({
         path: 'scheduleId',
-        populate: {
-          path: 'busId',
-          populate: {
-            path: 'routeId',
-            populate: { path: 'cityId' }
-          }
-        }
+        populate: [
+          { path: 'busId' },
+          { path: 'routeId', populate: { path: 'cityId' } }
+        ]
       })
       .populate('seatId', 'seatNumber');
 
@@ -51,10 +89,15 @@ const checkSurpriseReminders = async () => {
           continue;
         }
 
-        const route = booking.scheduleId.busId.routeId;
-        const fromCity = route.cityId[0].name;
-        const toCity = route.cityId[route.cityId.length - 1].name;
-        const seats = booking.seatId.map(s => s.seatNumber);
+        const route = booking.scheduleId?.routeId;
+        if (!route || !route.cityId || route.cityId.length === 0) {
+          console.log(`Skipping booking ${booking._id} - no route data`);
+          continue;
+        }
+
+        const fromCity = route.cityId[0]?.name || 'Unknown';
+        const toCity = route.cityId[route.cityId.length - 1]?.name || 'Unknown';
+        const seats = booking.seatId?.map(s => s.seatNumber) || [];
 
         // Send reminder email
         await sendSurpriseReminderEmail(booking.userId.email, {
@@ -62,9 +105,9 @@ const checkSurpriseReminders = async () => {
           bookingId: booking._id.toString(),
           from: fromCity,
           to: toCity,
-          departureTime: booking.scheduleId.departureTime,
-          arrivalTime: booking.scheduleId.arrivalTime,
-          busNumber: booking.scheduleId.busId.numberPlate,
+          departureTime: booking.scheduleId?.departureTime,
+          arrivalTime: booking.scheduleId?.arrivalTime,
+          busNumber: booking.scheduleId?.busId?.numberPlate || 'Unknown',
           seats: seats,
           distance: route.distance
         });
@@ -85,16 +128,22 @@ const checkSurpriseReminders = async () => {
   }
 };
 
-// Run the check every 5 minutes
-const startSurpriseReminderCron = () => {
-  console.log('Starting surprise reminder email cron job...');
-  
-  // Run immediately on start
-  checkSurpriseReminders();
-  
-  // Then run every 5 minutes
-  setInterval(checkSurpriseReminders, 5 * 60 * 1000); // 5 minutes in milliseconds
+// Start all cron jobs
+const startCronJobs = () => {
+  console.log('Starting cron jobs...');
+
+  // Cleanup expired bookings - run every minute
+  console.log('  - Expired bookings cleanup (every 1 min)');
+  cleanupExpiredBookings(); // Run immediately
+  setInterval(cleanupExpiredBookings, 60 * 1000); // Every minute
+
+  // Surprise reminder emails - run every 5 minutes
+  console.log('  - Surprise reminder emails (every 5 min)');
+  checkSurpriseReminders(); // Run immediately
+  setInterval(checkSurpriseReminders, 5 * 60 * 1000); // Every 5 minutes
+
+  console.log('Cron jobs started successfully');
 };
 
-export default startSurpriseReminderCron;
+export default startCronJobs;
 

@@ -34,19 +34,8 @@ const getPopularRoutes = async (req, res) => {
         $unwind: '$schedule'
       },
       {
-        $lookup: {
-          from: 'buses',
-          localField: 'schedule.busId',
-          foreignField: '_id',
-          as: 'bus'
-        }
-      },
-      {
-        $unwind: '$bus'
-      },
-      {
         $group: {
-          _id: '$bus.routeId',
+          _id: '$schedule.routeId',
           bookingCount: { $sum: 1 }
         }
       },

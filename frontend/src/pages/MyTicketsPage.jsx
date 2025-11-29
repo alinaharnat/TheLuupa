@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Ticket,
   Bus,
@@ -11,6 +11,7 @@ import {
   XCircle,
   User,
   Eye,
+  CheckCircle,
 } from "lucide-react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
@@ -18,16 +19,60 @@ import Footer from "../components/Footer";
 
 const MyTicketsPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [cancellingId, setCancellingId] = useState(null);
   const [revealingId, setRevealingId] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [paymentMessage, setPaymentMessage] = useState("");
 
   useEffect(() => {
+    // Check for payment verification
+    const sessionId = searchParams.get("session_id");
+    const paymentCancelled = searchParams.get("payment_cancelled");
+
+    if (sessionId) {
+      verifyPayment(sessionId);
+    } else if (paymentCancelled) {
+      setPaymentMessage("Payment was cancelled.");
+      // Clear URL params
+      setSearchParams({});
+    }
+
     fetchBookings();
   }, []);
+
+  const verifyPayment = async (sessionId) => {
+    const userInfo = localStorage.getItem("userInfo");
+    if (!userInfo) return;
+
+    const token = JSON.parse(userInfo).token;
+    if (!token) return;
+
+    try {
+      const { data } = await axios.post(
+        "/api/payments/verify",
+        { sessionId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (data.status === "confirmed" || data.status === "already_confirmed") {
+        setPaymentMessage("Payment successful! Your booking is confirmed.");
+      } else if (data.status === "expired") {
+        setPaymentMessage("Payment session expired. Please try again.");
+      }
+
+      // Clear URL params
+      setSearchParams({});
+
+      // Refresh bookings
+      fetchBookings();
+    } catch (err) {
+      console.error("Payment verification error:", err);
+    }
+  };
 
   const fetchBookings = async () => {
     const userInfo = localStorage.getItem("userInfo");
@@ -106,6 +151,32 @@ const MyTicketsPage = () => {
     }
   };
 
+  const [payingId, setPayingId] = useState(null);
+
+  const handlePayNow = async (bookingId) => {
+    const userInfo = localStorage.getItem("userInfo");
+    if (!userInfo) return;
+
+    const token = JSON.parse(userInfo).token;
+    if (!token) return;
+
+    setPayingId(bookingId);
+
+    try {
+      const { data } = await axios.post(
+        "/api/payments/create-session",
+        { bookingId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Redirect to Stripe checkout
+      window.location.href = data.url;
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to create payment session");
+      setPayingId(null);
+    }
+  };
+
   const handleRevealDestination = async (bookingId) => {
     const userInfo = localStorage.getItem("userInfo");
     if (!userInfo) return;
@@ -143,12 +214,18 @@ const MyTicketsPage = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
       case "confirmed":
         return "bg-green-100 text-green-800";
       case "completed":
-        return "bg-green-400 text-green-800";
+        return "bg-blue-100 text-blue-800";
       case "cancelled":
         return "bg-red-100 text-red-800";
+      case "failed":
+        return "bg-red-100 text-red-800";
+      case "expired":
+        return "bg-gray-100 text-gray-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -170,7 +247,9 @@ const MyTicketsPage = () => {
   };
 
   const canCancelBooking = (booking) => {
-    if (booking.status === "cancelled") return false;
+    if (["cancelled", "failed", "completed", "expired"].includes(booking.status)) {
+      return false;
+    }
     const hoursUntilDeparture =
       (new Date(booking.trip.departureTime) - new Date()) / (1000 * 60 * 60);
     return hoursUntilDeparture >= 2;
@@ -189,6 +268,23 @@ const MyTicketsPage = () => {
               </h1>
             </div>
           </div>
+
+          {paymentMessage && (
+            <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
+              paymentMessage.includes("successful") || paymentMessage.includes("confirmed")
+                ? "bg-green-100 text-green-800"
+                : "bg-yellow-100 text-yellow-800"
+            }`}>
+              <CheckCircle className="w-5 h-5" />
+              <span>{paymentMessage}</span>
+              <button
+                onClick={() => setPaymentMessage("")}
+                className="ml-auto text-sm underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
 
           {isLoading ? (
             <div className="bg-white rounded-lg shadow-md p-12 text-center">
@@ -268,22 +364,42 @@ const MyTicketsPage = () => {
                           {booking.status.charAt(0).toUpperCase() +
                             booking.status.slice(1)}
                         </span>
+                        {booking.status === "pending" && booking.expiresAt && (
+                          <span className="text-xs text-orange-600 font-medium">
+                            ⏱ Expires: {new Date(booking.expiresAt).toLocaleTimeString("en-GB", {
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </span>
+                        )}
                         <span className="text-sm text-gray-500">
                           Booked on {formatDateTime(booking.createdAt).date}
                         </span>
                       </div>
-                      {canCancelBooking(booking) && (
-                        <button
-                          onClick={() => handleCancelBooking(booking._id)}
-                          disabled={cancellingId === booking._id}
-                          className="flex items-center gap-1 text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
-                        >
-                          <XCircle className="w-4 h-4" />
-                          {cancellingId === booking._id
-                            ? "Cancelling..."
-                            : "Cancel"}
-                        </button>
-                      )}
+                      <div className="flex items-center gap-3">
+                        {booking.status === "pending" && (
+                          <button
+                            onClick={() => handlePayNow(booking._id)}
+                            disabled={payingId === booking._id}
+                            className="flex items-center gap-1 px-3 py-1 bg-[#096B8A] text-white rounded-md hover:bg-[#064d63] text-sm font-medium disabled:opacity-50"
+                          >
+                            <CreditCard className="w-4 h-4" />
+                            {payingId === booking._id ? "Processing..." : "Pay Now"}
+                          </button>
+                        )}
+                        {canCancelBooking(booking) && (
+                          <button
+                            onClick={() => handleCancelBooking(booking._id)}
+                            disabled={cancellingId === booking._id}
+                            className="flex items-center gap-1 text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            {cancellingId === booking._id
+                              ? "Cancelling..."
+                              : "Cancel"}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

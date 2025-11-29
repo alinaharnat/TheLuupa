@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Building2, Phone, FileText, Mail, Calendar, Bus, Route, Users, TrendingUp } from "lucide-react";
+import { ArrowLeft, Building2, Phone, FileText, Mail, Calendar, Bus, Route } from "lucide-react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -13,7 +13,6 @@ const CarrierCompanyPage = () => {
     buses: 0,
     routes: 0,
     trips: 0,
-    passengers: 0,
   });
 
   useEffect(() => {
@@ -48,13 +47,17 @@ const CarrierCompanyPage = () => {
 
   const fetchStats = async (token) => {
     try {
-      const { data: buses } = await axios.get("/api/buses", {
-        headers: { Authorization: `Bearer ${token}` },
+      const [busesRes, routesRes, schedulesRes] = await Promise.all([
+        axios.get("/api/buses", { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get("/api/carrier-routes", { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get("/api/carrier-schedules", { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      setStats({
+        buses: busesRes.data.length,
+        routes: routesRes.data.length,
+        trips: schedulesRes.data.length,
       });
-      setStats((prev) => ({
-        ...prev,
-        buses: buses.length,
-      }));
     } catch (err) {
       console.error("Error fetching stats:", err);
     }
@@ -137,7 +140,7 @@ const CarrierCompanyPage = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-lg font-semibold text-[#064d63] mb-4">Statistics</h2>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="text-center p-4 bg-gray-50 rounded-lg">
                 <Bus className="w-8 h-8 text-[#096B8A] mx-auto mb-2" />
                 <p className="text-2xl font-bold text-[#064d63]">{stats.buses}</p>
@@ -145,21 +148,15 @@ const CarrierCompanyPage = () => {
               </div>
 
               <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <Route className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-400">-</p>
-                <p className="text-xs text-gray-400">Routes</p>
+                <Route className="w-8 h-8 text-[#096B8A] mx-auto mb-2" />
+                <p className="text-2xl font-bold text-[#064d63]">{stats.routes}</p>
+                <p className="text-xs text-gray-500">Routes</p>
               </div>
 
               <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <Calendar className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-400">-</p>
-                <p className="text-xs text-gray-400">Trips</p>
-              </div>
-
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <Users className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-400">-</p>
-                <p className="text-xs text-gray-400">Passengers</p>
+                <Calendar className="w-8 h-8 text-[#096B8A] mx-auto mb-2" />
+                <p className="text-2xl font-bold text-[#064d63]">{stats.trips}</p>
+                <p className="text-xs text-gray-500">Trips</p>
               </div>
             </div>
           </div>

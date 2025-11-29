@@ -11,6 +11,7 @@ import CarrierCompanyPage from "./pages/CarrierCompanyPage";
 import MyBusesPage from "./pages/MyBusesPage";
 import MyRoutesPage from "./pages/MyRoutesPage";
 import MySchedulesPage from "./pages/MySchedulesPage";
+import CarrierBookingsPage from "./pages/CarrierBookingsPage";
 import HomeRouter from "./components/HomeRouter";
 import Navbar from "./components/Navbar";
 
@@ -34,6 +35,7 @@ function App() {
         <Route path="/carrier/buses" element={<MyBusesPage />} />
         <Route path="/carrier/routes" element={<MyRoutesPage />} />
         <Route path="/carrier/schedules" element={<MySchedulesPage />} />
+        <Route path="/carrier/bookings" element={<CarrierBookingsPage />} />
       </Routes>
     </Router>
   );

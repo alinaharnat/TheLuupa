@@ -2,6 +2,7 @@ import Schedule from "../models/schedule.js";
 import Bus from "../models/bus.js";
 import Route from "../models/route.js";
 import Seat from "../models/seat.js";
+import Booking from "../models/booking.js";
 
 // @desc    Get all schedules for current carrier
 // @route   GET /api/carrier-schedules
@@ -202,4 +203,75 @@ const deleteSchedule = async (req, res) => {
   }
 };
 
-export { getMySchedules, getScheduleById, createSchedule, updateSchedule, deleteSchedule };
+// @desc    Get all bookings for carrier's schedules
+// @route   GET /api/carrier-schedules/bookings
+// @access  Private/Carrier
+const getCarrierBookings = async (req, res) => {
+  try {
+    // Get all buses belonging to this carrier
+    const carrierBuses = await Bus.find({ carrierId: req.user._id }).select("_id");
+    const busIds = carrierBuses.map(b => b._id);
+
+    // Get all schedules for these buses
+    const schedules = await Schedule.find({ busId: { $in: busIds } }).select("_id");
+    const scheduleIds = schedules.map(s => s._id);
+
+    // Get all bookings for these schedules
+    const bookings = await Booking.find({ scheduleId: { $in: scheduleIds } })
+      .populate("userId", "name email")
+      .populate({
+        path: "scheduleId",
+        populate: [
+          { path: "busId", select: "busName numberPlate capacity" },
+          {
+            path: "routeId",
+            populate: { path: "cityId", select: "name" }
+          }
+        ]
+      })
+      .populate("seatId", "seatNumber")
+      .sort({ createdAt: -1 });
+
+    // Calculate occupancy for each schedule
+    const bookingsWithOccupancy = bookings.map(booking => {
+      const schedule = booking.scheduleId;
+      const bus = schedule?.busId;
+
+      return {
+        _id: booking._id,
+        passenger: {
+          name: booking.userId?.name || "Unknown",
+          email: booking.userId?.email || "Unknown",
+        },
+        schedule: {
+          _id: schedule?._id,
+          departureTime: schedule?.departureTime,
+          arrivalTime: schedule?.arrivalTime,
+          price: schedule?.price,
+        },
+        bus: {
+          name: bus?.busName || "Unknown",
+          numberPlate: bus?.numberPlate || "Unknown",
+          capacity: bus?.capacity || 0,
+        },
+        route: schedule?.routeId ? {
+          from: schedule.routeId.cityId[0]?.name || "Unknown",
+          to: schedule.routeId.cityId[schedule.routeId.cityId.length - 1]?.name || "Unknown",
+          distance: schedule.routeId.distance,
+        } : null,
+        seats: booking.seatId?.map(s => s.seatNumber) || [],
+        seatsCount: booking.seatId?.length || 0,
+        status: booking.status,
+        isSurprise: booking.isSurprise,
+        createdAt: booking.createdAt,
+      };
+    });
+
+    res.json(bookingsWithOccupancy);
+  } catch (error) {
+    console.error("Error fetching carrier bookings:", error);
+    res.status(500).json({ message: "Failed to fetch bookings" });
+  }
+};
+
+export { getMySchedules, getScheduleById, createSchedule, updateSchedule, deleteSchedule, getCarrierBookings };

@@ -25,18 +25,27 @@ const createBooking = async (req, res) => {
 
     // Проверяем существование расписания
     const schedule = await Schedule.findById(scheduleId)
+      .populate('busId')
       .populate({
-        path: 'busId',
-        populate: {
-          path: 'routeId',
-          populate: { path: 'cityId' }
-        }
+        path: 'routeId',
+        populate: { path: 'cityId' }
       })
       .session(session);
 
     if (!schedule) {
       await session.abortTransaction();
       return res.status(404).json({ message: 'Schedule not found' });
+    }
+
+    // Check if schedule has required data
+    if (!schedule.busId) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: 'Schedule is missing bus information' });
+    }
+
+    if (!schedule.routeId) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: 'Schedule is missing route information' });
     }
 
     // Проверяем, что рейс еще не отправился
@@ -46,8 +55,9 @@ const createBooking = async (req, res) => {
     }
 
     // Находим места по номерам для данного автобуса
+    const busId = schedule.busId._id || schedule.busId;
     const seats = await Seat.find({
-      busId: schedule.busId._id,
+      busId: busId,
       seatNumber: { $in: seatNumbers }
     }).session(session);
 
@@ -57,10 +67,14 @@ const createBooking = async (req, res) => {
     }
 
     // Проверяем, что места не заняты для этого рейса
+    // Exclude expired pending bookings
     const existingBookings = await Booking.find({
       scheduleId: scheduleId,
-      status: { $in: ['pending', 'confirmed'] },
-      seatId: { $in: seats.map(s => s._id) }
+      seatId: { $in: seats.map(s => s._id) },
+      $or: [
+        { status: 'confirmed' },
+        { status: 'pending', expiresAt: { $gt: new Date() } }
+      ]
     }).session(session);
 
     if (existingBookings.length > 0) {
@@ -68,12 +82,14 @@ const createBooking = async (req, res) => {
       return res.status(400).json({ message: 'Some of the selected seats are already booked' });
     }
 
-    // Создаем бронирование
+    // Создаем бронирование (expires in 15 minutes if not paid)
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     const booking = await Booking.create([{
       userId: userId,
       scheduleId: scheduleId,
       seatId: seats.map(s => s._id),
-      status: 'confirmed',
+      status: 'pending',
+      expiresAt: expiresAt,
       isSurprise: isSurprise === true || isSurprise === 'true',
       destinationRevealed: false
     }], { session });
@@ -94,36 +110,34 @@ const createBooking = async (req, res) => {
       .populate('userId', 'name email')
       .populate({
         path: 'scheduleId',
-        populate: {
-          path: 'busId',
-          populate: {
-            path: 'routeId',
-            populate: { path: 'cityId' }
-          }
-        }
+        populate: [
+          { path: 'busId' },
+          { path: 'routeId', populate: { path: 'cityId' } }
+        ]
       })
       .populate('seatId', 'seatNumber');
 
     // Hide destination for surprise trips
     const isSurpriseTrip = fullBooking.isSurprise;
     const destinationRevealed = fullBooking.destinationRevealed;
-    const destinationCity = fullBooking.scheduleId.busId.routeId.cityId[fullBooking.scheduleId.busId.routeId.cityId.length - 1].name;
-    const route = fullBooking.scheduleId.busId.routeId;
-    const fromCity = route.cityId[0].name;
-    const bookingSeatNumbers = fullBooking.seatId.map(s => s.seatNumber);
-    
+    const route = fullBooking.scheduleId?.routeId;
+    const cities = route?.cityId || [];
+    const fromCity = cities[0]?.name || 'Unknown';
+    const destinationCity = cities[cities.length - 1]?.name || 'Unknown';
+    const bookingSeatNumbers = fullBooking.seatId?.map(s => s.seatNumber) || [];
+
     // Send booking confirmation email (don't wait for it to complete)
-    if (fullBooking.userId.email) {
+    if (fullBooking.userId?.email) {
       sendBookingConfirmationEmail(fullBooking.userId.email, {
         userName: fullBooking.userId.name || fullBooking.userId.email.split('@')[0],
         bookingId: fullBooking._id.toString(),
         from: fromCity,
         to: destinationCity,
-        departureTime: fullBooking.scheduleId.departureTime,
-        arrivalTime: fullBooking.scheduleId.arrivalTime,
-        busNumber: fullBooking.scheduleId.busId.numberPlate,
+        departureTime: fullBooking.scheduleId?.departureTime,
+        arrivalTime: fullBooking.scheduleId?.arrivalTime,
+        busNumber: fullBooking.scheduleId?.busId?.numberPlate || 'Unknown',
         seats: bookingSeatNumbers,
-        distance: route.distance,
+        distance: route?.distance,
         totalAmount: totalAmount,
         paymentMethod: paymentMethod.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
         paymentStatus: payment[0].status,
@@ -133,7 +147,7 @@ const createBooking = async (req, res) => {
         // Don't fail the request if email fails
       });
     }
-    
+
     res.status(201).json({
       message: 'Booking created successfully',
       booking: {
@@ -145,9 +159,9 @@ const createBooking = async (req, res) => {
         trip: {
           from: fromCity,
           to: (isSurpriseTrip && !destinationRevealed) ? "???" : destinationCity,
-          departureTime: fullBooking.scheduleId.departureTime,
-          arrivalTime: fullBooking.scheduleId.arrivalTime,
-          busNumber: fullBooking.scheduleId.busId.numberPlate
+          departureTime: fullBooking.scheduleId?.departureTime,
+          arrivalTime: fullBooking.scheduleId?.arrivalTime,
+          busNumber: fullBooking.scheduleId?.busId?.numberPlate || 'Unknown'
         },
         payment: {
           _id: payment[0]._id,
@@ -160,8 +174,9 @@ const createBooking = async (req, res) => {
 
   } catch (error) {
     await session.abortTransaction();
-    console.error('Create booking error:', error);
-    res.status(500).json({ message: 'Server error. Please try again later.' });
+    console.error('Create booking error:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ message: error.message || 'Server error. Please try again later.' });
   } finally {
     session.endSession();
   }
@@ -179,13 +194,10 @@ const getUserBookings = async (req, res) => {
     const bookings = await Booking.find({ userId })
       .populate({
         path: 'scheduleId',
-        populate: {
-          path: 'busId',
-          populate: {
-            path: 'routeId',
-            populate: { path: 'cityId' }
-          }
-        }
+        populate: [
+          { path: 'busId' },
+          { path: 'routeId', populate: { path: 'cityId' } }
+        ]
       })
       .populate('seatId', 'seatNumber')
       .sort({ createdAt: -1 });
@@ -193,12 +205,25 @@ const getUserBookings = async (req, res) => {
     // Получаем платежи для каждого бронирования
     const bookingsWithPayments = await Promise.all(bookings.map(async (booking) => {
       const payment = await Payment.findOne({ bookingId: booking._id });
-      
+
+      // Skip bookings with missing schedule or route data
+      if (!booking.scheduleId || !booking.scheduleId.routeId || !booking.scheduleId.busId) {
+        return null;
+      }
+
       // Check if destination should be hidden for surprise trips
       const isSurpriseTrip = booking.isSurprise;
       const destinationRevealed = booking.destinationRevealed;
-      const destinationCity = booking.scheduleId.busId.routeId.cityId[booking.scheduleId.busId.routeId.cityId.length - 1].name;
-      
+      const route = booking.scheduleId.routeId;
+      const cities = route.cityId || [];
+
+      if (cities.length === 0) {
+        return null;
+      }
+
+      const fromCity = cities[0]?.name || 'Unknown';
+      const destinationCity = cities[cities.length - 1]?.name || 'Unknown';
+
       // Check if 5 hours before departure
       const hoursUntilDeparture = (new Date(booking.scheduleId.departureTime) - new Date()) / (1000 * 60 * 60);
       const canReveal = hoursUntilDeparture <= 5;
@@ -206,18 +231,19 @@ const getUserBookings = async (req, res) => {
       return {
         _id: booking._id,
         status: booking.status,
-        seats: booking.seatId.map(s => s.seatNumber),
+        expiresAt: booking.expiresAt,
+        seats: booking.seatId?.map(s => s.seatNumber) || [],
         createdAt: booking.createdAt,
         isSurprise: isSurpriseTrip,
         destinationRevealed: destinationRevealed,
         canRevealDestination: isSurpriseTrip && canReveal && !destinationRevealed,
         trip: {
-          from: booking.scheduleId.busId.routeId.cityId[0].name,
+          from: fromCity,
           to: (isSurpriseTrip && !destinationRevealed) ? "???" : destinationCity,
           departureTime: booking.scheduleId.departureTime,
           arrivalTime: booking.scheduleId.arrivalTime,
-          busNumber: booking.scheduleId.busId.numberPlate,
-          distance: (isSurpriseTrip && !destinationRevealed) ? null : booking.scheduleId.busId.routeId.distance
+          busNumber: booking.scheduleId.busId?.numberPlate || 'Unknown',
+          distance: (isSurpriseTrip && !destinationRevealed) ? null : route.distance
         },
         payment: payment ? {
           amount: payment.amount,
@@ -227,9 +253,12 @@ const getUserBookings = async (req, res) => {
       };
     }));
 
+    // Filter out null bookings (those with missing data)
+    const validBookings = bookingsWithPayments.filter(b => b !== null);
+
     res.json({
-      count: bookingsWithPayments.length,
-      bookings: bookingsWithPayments
+      count: validBookings.length,
+      bookings: validBookings
     });
 
   } catch (error) {
@@ -252,13 +281,10 @@ const getBookingById = async (req, res) => {
       .populate('userId', 'name email')
       .populate({
         path: 'scheduleId',
-        populate: {
-          path: 'busId',
-          populate: {
-            path: 'routeId',
-            populate: { path: 'cityId' }
-          }
-        }
+        populate: [
+          { path: 'busId' },
+          { path: 'routeId', populate: { path: 'cityId' } }
+        ]
       })
       .populate('seatId', 'seatNumber');
 
@@ -272,12 +298,20 @@ const getBookingById = async (req, res) => {
     }
 
     const payment = await Payment.findOne({ bookingId: booking._id });
-    
+
+    // Check for missing schedule or route data
+    if (!booking.scheduleId || !booking.scheduleId.routeId || !booking.scheduleId.busId) {
+      return res.status(404).json({ message: 'Booking data incomplete' });
+    }
+
     // Check if destination should be hidden for surprise trips
     const isSurpriseTrip = booking.isSurprise;
     const destinationRevealed = booking.destinationRevealed;
-    const destinationCity = booking.scheduleId.busId.routeId.cityId[booking.scheduleId.busId.routeId.cityId.length - 1].name;
-    
+    const route = booking.scheduleId.routeId;
+    const cities = route.cityId || [];
+    const fromCity = cities[0]?.name || 'Unknown';
+    const destinationCity = cities[cities.length - 1]?.name || 'Unknown';
+
     // Check if 5 hours before departure
     const hoursUntilDeparture = (new Date(booking.scheduleId.departureTime) - new Date()) / (1000 * 60 * 60);
     const canReveal = hoursUntilDeparture <= 5;
@@ -285,18 +319,18 @@ const getBookingById = async (req, res) => {
     res.json({
       _id: booking._id,
       status: booking.status,
-      seats: booking.seatId.map(s => s.seatNumber),
+      seats: booking.seatId?.map(s => s.seatNumber) || [],
       createdAt: booking.createdAt,
       isSurprise: isSurpriseTrip,
       destinationRevealed: destinationRevealed,
       canRevealDestination: isSurpriseTrip && canReveal && !destinationRevealed,
       trip: {
-        from: booking.scheduleId.busId.routeId.cityId[0].name,
+        from: fromCity,
         to: (isSurpriseTrip && !destinationRevealed) ? "???" : destinationCity,
         departureTime: booking.scheduleId.departureTime,
         arrivalTime: booking.scheduleId.arrivalTime,
-        busNumber: booking.scheduleId.busId.numberPlate,
-        distance: (isSurpriseTrip && !destinationRevealed) ? null : booking.scheduleId.busId.routeId.distance
+        busNumber: booking.scheduleId.busId?.numberPlate || 'Unknown',
+        distance: (isSurpriseTrip && !destinationRevealed) ? null : route.distance
       },
       payment: payment ? {
         amount: payment.amount,
@@ -327,13 +361,10 @@ const cancelBooking = async (req, res) => {
     const booking = await Booking.findById(bookingId)
       .populate({
         path: 'scheduleId',
-        populate: {
-          path: 'busId',
-          populate: {
-            path: 'routeId',
-            populate: { path: 'cityId' }
-          }
-        }
+        populate: [
+          { path: 'busId' },
+          { path: 'routeId', populate: { path: 'cityId' } }
+        ]
       })
       .populate('userId', 'name email')
       .populate('seatId', 'seatNumber')
@@ -383,22 +414,23 @@ const cancelBooking = async (req, res) => {
 
     await session.commitTransaction();
 
-    // Prepare booking details for email
-    const route = booking.scheduleId.busId.routeId;
-    const fromCity = route.cityId[0].name;
-    const toCity = route.cityId[route.cityId.length - 1].name;
-    const seats = booking.seatId.map(s => s.seatNumber);
+    // Prepare booking details for email (with null checks)
+    const route = booking.scheduleId?.routeId;
+    const cities = route?.cityId || [];
+    const fromCity = cities[0]?.name || 'Unknown';
+    const toCity = cities[cities.length - 1]?.name || 'Unknown';
+    const seats = booking.seatId?.map(s => s.seatNumber) || [];
 
     // Send cancellation email (don't wait for it to complete)
-    if (booking.userId.email) {
+    if (booking.userId?.email) {
       sendCancellationEmail(booking.userId.email, {
         userName: booking.userId.name || booking.userId.email.split('@')[0],
         bookingId: booking._id.toString(),
         from: fromCity,
         to: toCity,
-        departureTime: booking.scheduleId.departureTime,
-        arrivalTime: booking.scheduleId.arrivalTime,
-        busNumber: booking.scheduleId.busId.numberPlate,
+        departureTime: booking.scheduleId?.departureTime,
+        arrivalTime: booking.scheduleId?.arrivalTime,
+        busNumber: booking.scheduleId?.busId?.numberPlate || 'Unknown',
         seats: seats,
         refundAmount: refundAmount,
         paymentMethod: paymentMethod.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
@@ -443,10 +475,13 @@ const getAvailableSeats = async (req, res) => {
     // Получаем все места для автобуса
     const allSeats = await Seat.find({ busId: schedule.busId._id }).sort({ seatNumber: 1 });
 
-    // Получаем забронированные места для этого рейса
+    // Получаем забронированные места для этого рейса (exclude expired pending)
     const bookings = await Booking.find({
       scheduleId: scheduleId,
-      status: { $in: ['pending', 'confirmed'] }
+      $or: [
+        { status: 'confirmed' },
+        { status: 'pending', expiresAt: { $gt: new Date() } }
+      ]
     });
 
     const bookedSeatIds = bookings.flatMap(booking => booking.seatId.map(id => id.toString()));
@@ -481,15 +516,13 @@ const getScheduleDetails = async (req, res) => {
     const isSurprise = req.query.surprise === 'true';
 
     const schedule = await Schedule.findById(scheduleId)
+      .populate('busId')
       .populate({
-        path: 'busId',
-        populate: {
-          path: 'routeId',
-          populate: [
-            { path: 'cityId' },
-            { path: 'userId', select: 'name email' }
-          ]
-        }
+        path: 'routeId',
+        populate: [
+          { path: 'cityId' },
+          { path: 'userId', select: 'name email' }
+        ]
       });
 
     if (!schedule) {
@@ -497,13 +530,16 @@ const getScheduleDetails = async (req, res) => {
     }
 
     const bus = schedule.busId;
-    const route = bus.routeId;
+    const route = schedule.routeId;
 
-    // Get available seats count
+    // Get available seats count (exclude expired pending)
     const allSeats = await Seat.find({ busId: bus._id });
     const bookings = await Booking.find({
       scheduleId: scheduleId,
-      status: { $in: ['pending', 'confirmed'] }
+      $or: [
+        { status: 'confirmed' },
+        { status: 'pending', expiresAt: { $gt: new Date() } }
+      ]
     });
 
     const bookedSeatIds = bookings.flatMap(booking => booking.seatId.map(id => id.toString()));
@@ -582,17 +618,17 @@ const revealDestination = async (req, res) => {
     const fullBooking = await Booking.findById(bookingId)
       .populate({
         path: 'scheduleId',
-        populate: {
-          path: 'busId',
-          populate: {
-            path: 'routeId',
-            populate: { path: 'cityId' }
-          }
-        }
+        populate: [
+          { path: 'busId' },
+          { path: 'routeId', populate: { path: 'cityId' } }
+        ]
       })
       .populate('seatId', 'seatNumber');
 
-    const destinationCity = fullBooking.scheduleId.busId.routeId.cityId[fullBooking.scheduleId.busId.routeId.cityId.length - 1].name;
+    const route = fullBooking.scheduleId?.routeId;
+    const cities = route?.cityId || [];
+    const fromCity = cities[0]?.name || 'Unknown';
+    const destinationCity = cities[cities.length - 1]?.name || 'Unknown';
 
     res.json({
       message: 'Destination revealed successfully',
@@ -601,7 +637,7 @@ const revealDestination = async (req, res) => {
         isSurprise: fullBooking.isSurprise,
         destinationRevealed: fullBooking.destinationRevealed,
         trip: {
-          from: fullBooking.scheduleId.busId.routeId.cityId[0].name,
+          from: fromCity,
           to: destinationCity
         }
       }

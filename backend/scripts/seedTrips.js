@@ -81,24 +81,26 @@ async function seedData() {
     ]);
     console.log(`✅ Created ${routes.length} routes`);
 
-    // 5. Create buses
+    // 5. Create buses (one bus per route for simplicity)
     console.log('🚌 Creating buses...');
     const buses = [];
     for (let i = 0; i < routes.length; i++) {
       const bus = await Bus.create({
-        userId: carrier._id,
-        routeId: routes[i]._id,
+        carrierId: carrier._id,
+        busName: `Bus ${i + 1}`,
         numberPlate: `AA ${1000 + i} BB`,
-        seats: [] // Оставляем пустым, места создадим отдельно
+        capacity: 40,
+        busType: i % 3 === 0 ? 'luxury' : (i % 3 === 1 ? 'minibus' : 'standard'),
+        isActive: true
       });
-      buses.push(bus);
+      buses.push({ bus, route: routes[i] }); // Store bus with its associated route
     }
     console.log(`✅ Created ${buses.length} buses`);
 
     // 6. Create seats for each bus
     console.log('💺 Creating seats in buses...');
     let totalSeats = 0;
-    for (const bus of buses) {
+    for (const { bus } of buses) {
       const seats = [];
       for (let j = 1; j <= 40; j++) {
         seats.push({
@@ -121,9 +123,7 @@ async function seedData() {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     // Create schedule for 7 days for each bus
-    for (const bus of buses) {
-      const route = routes.find(r => r._id.equals(bus.routeId));
-
+    for (const { bus, route } of buses) {
       for (let day = 0; day < 7; day++) {
         // Morning trip (08:00)
         const morningDeparture = new Date(
@@ -143,6 +143,7 @@ async function seedData() {
 
         schedules.push({
           busId: bus._id,
+          routeId: route._id,
           departureTime: morningDeparture,
           arrivalTime: morningArrival,
           price: Math.floor(route.distance * 0.13) // 0.13 currency per km (affordable pricing, max ~$100)
@@ -165,6 +166,7 @@ async function seedData() {
 
         schedules.push({
           busId: bus._id,
+          routeId: route._id,
           departureTime: eveningDeparture,
           arrivalTime: eveningArrival,
           price: Math.floor(route.distance * 0.13) // 0.13 currency per km (affordable pricing, max ~$100)
