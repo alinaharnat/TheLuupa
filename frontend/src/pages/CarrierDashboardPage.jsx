@@ -92,29 +92,35 @@ const CarrierDashboardPage = () => {
               </div>
             </Link>
 
-            <div className="bg-white rounded-lg shadow-md p-6 opacity-50 cursor-not-allowed">
+            <Link
+              to="/carrier/routes"
+              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+            >
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-gray-400 rounded-full">
+                <div className="p-3 bg-[#096B8A] rounded-full">
                   <Route className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-500">My Routes</h3>
-                  <p className="text-gray-400 text-sm">Coming soon...</p>
+                  <h3 className="text-lg font-semibold text-[#064d63]">My Routes</h3>
+                  <p className="text-gray-500 text-sm">Manage your routes</p>
                 </div>
               </div>
-            </div>
+            </Link>
 
-            <div className="bg-white rounded-lg shadow-md p-6 opacity-50 cursor-not-allowed">
+            <Link
+              to="/carrier/schedules"
+              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+            >
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-gray-400 rounded-full">
+                <div className="p-3 bg-[#096B8A] rounded-full">
                   <Calendar className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-500">Schedules</h3>
-                  <p className="text-gray-400 text-sm">Coming soon...</p>
+                  <h3 className="text-lg font-semibold text-[#064d63]">Schedules</h3>
+                  <p className="text-gray-500 text-sm">Manage trip schedules</p>
                 </div>
               </div>
-            </div>
+            </Link>
           </div>
 
           {/* Info Message */}
@@ -122,7 +128,7 @@ const CarrierDashboardPage = () => {
             <Bus className="w-12 h-12 text-[#096B8A] mx-auto mb-3" />
             <h3 className="text-lg font-semibold text-gray-700">Welcome to Carrier Dashboard</h3>
             <p className="text-gray-500 mt-2">
-              Start by adding your buses. Routes and schedules features are coming soon.
+              Manage your buses, routes, and schedules to offer trips to passengers.
             </p>
           </div>
         </div>

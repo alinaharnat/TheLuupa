@@ -15,6 +15,8 @@ import homeRoutes from './routes/homeRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import busRoutes from './routes/busRoutes.js';
+import carrierRouteRoutes from './routes/carrierRouteRoutes.js';
+import carrierScheduleRoutes from './routes/carrierScheduleRoutes.js';
 
 const app = express();
 
@@ -53,6 +55,8 @@ app.use("/api/countries", countryRoutes);
 app.use("/api/home", homeRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/buses", busRoutes);
+app.use("/api/carrier-routes", carrierRouteRoutes);
+app.use("/api/carrier-schedules", carrierScheduleRoutes);
 
 // Health check route
 app.get('/', (req, res) => {

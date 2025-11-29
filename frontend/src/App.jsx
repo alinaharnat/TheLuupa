@@ -9,6 +9,8 @@ import BecomeCarrierPage from "./pages/BecomeCarrierPage";
 import AdminCarrierApplicationsPage from "./pages/AdminCarrierApplicationsPage";
 import CarrierCompanyPage from "./pages/CarrierCompanyPage";
 import MyBusesPage from "./pages/MyBusesPage";
+import MyRoutesPage from "./pages/MyRoutesPage";
+import MySchedulesPage from "./pages/MySchedulesPage";
 import HomeRouter from "./components/HomeRouter";
 import Navbar from "./components/Navbar";
 
@@ -30,6 +32,8 @@ function App() {
         <Route path="/admin/carrier-applications" element={<AdminCarrierApplicationsPage />} />
         <Route path="/carrier/company" element={<CarrierCompanyPage />} />
         <Route path="/carrier/buses" element={<MyBusesPage />} />
+        <Route path="/carrier/routes" element={<MyRoutesPage />} />
+        <Route path="/carrier/schedules" element={<MySchedulesPage />} />
       </Routes>
     </Router>
   );

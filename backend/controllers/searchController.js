@@ -43,26 +43,19 @@ const searchTrips = async (req, res) => {
       return res.status(404).json({ message: 'No routes found for this trip' });
     }
 
-    // Get all buses for these routes
+    // Get route IDs
     const routeIds = validRoutes.map(route => route._id);
-    const buses = await Bus.find({ routeId: { $in: routeIds } }).populate('routeId');
-
-    if (buses.length === 0) {
-      return res.status(404).json({ message: 'No buses available for this route' });
-    }
-
-    // Get schedules for these buses on the specified date
-    const busIds = buses.map(bus => bus._id);
 
     // Parse date and create date range for comparison (in local timezone)
     const [year, month, day] = date.split('-').map(Number);
     const localStart = new Date(year, month - 1, day, 0, 0, 0, 0);
     const localEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
 
+    // Get schedules for these routes on the specified date
     const schedules = await Schedule.find({
-      busId: { $in: busIds },
+      routeId: { $in: routeIds },
       departureTime: { $gte: localStart, $lte: localEnd }
-    }).populate('busId');
+    }).populate('busId').populate('routeId');
 
     if (schedules.length === 0) {
       return res.status(404).json({ message: 'No trips available on this date' });
@@ -89,8 +82,12 @@ const searchTrips = async (req, res) => {
         return null;
       }
 
-      // Get route details
-      const route = validRoutes.find(r => r._id.toString() === bus.routeId._id.toString());
+      // Get route details from schedule.routeId (already populated)
+      const route = validRoutes.find(r => r._id.toString() === schedule.routeId._id.toString());
+
+      if (!route) {
+        return null;
+      }
 
       // Find indices of from and to cities in the route
       const fromIndex = route.cityId.findIndex(city => city._id.toString() === fromCity._id.toString());
@@ -99,6 +96,8 @@ const searchTrips = async (req, res) => {
       return {
         scheduleId: schedule._id,
         busNumber: bus.numberPlate,
+        busName: bus.busName,
+        busType: bus.busType,
         carrier: route.userId.name,
         carrierEmail: route.userId.email,
         route: {
