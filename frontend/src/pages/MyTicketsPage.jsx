@@ -203,11 +203,13 @@ const MyTicketsPage = () => {
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
+    // Use UTC methods to display time exactly as stored in database
     return {
-      date: date.toLocaleDateString("en-GB"),
+      date: date.toLocaleDateString("en-GB", { timeZone: "UTC" }),
       time: date.toLocaleTimeString("en-GB", {
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "UTC",
       }),
     };
   };
@@ -368,7 +370,8 @@ const MyTicketsPage = () => {
                           <span className="text-xs text-orange-600 font-medium">
                             ⏱ Expires: {new Date(booking.expiresAt).toLocaleTimeString("en-GB", {
                               hour: "2-digit",
-                              minute: "2-digit"
+                              minute: "2-digit",
+                              timeZone: "UTC"
                             })}
                           </span>
                         )}

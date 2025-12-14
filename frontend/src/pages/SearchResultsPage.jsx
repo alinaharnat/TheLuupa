@@ -55,9 +55,12 @@ const SearchResultsPage = () => {
   }, [from, to, date, passengers]);
 
   const formatTime = (dateString) => {
-    return new Date(dateString).toLocaleTimeString("en-GB", {
+    const date = new Date(dateString);
+    // Use UTC methods to display time exactly as stored in database
+    return date.toLocaleTimeString("en-GB", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "UTC",
     });
   };
 

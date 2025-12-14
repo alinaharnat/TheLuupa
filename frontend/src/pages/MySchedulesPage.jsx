@@ -110,12 +110,14 @@ const MySchedulesPage = () => {
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
+    // Use UTC methods to display time exactly as stored in database
     return date.toLocaleString("uk-UA", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "UTC",
     });
   };
 
@@ -135,12 +137,19 @@ const MySchedulesPage = () => {
 
   const formatDateForInput = (dateString) => {
     const date = new Date(dateString);
-    return date.toISOString().split("T")[0];
+    // Use UTC methods to display date exactly as stored in database
+    const year = date.getUTCFullYear();
+    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+    const day = date.getUTCDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const formatTimeForInput = (dateString) => {
     const date = new Date(dateString);
-    return date.toTimeString().slice(0, 5);
+    // Use UTC methods to display time exactly as stored in database
+    const hours = date.getUTCHours().toString().padStart(2, '0');
+    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
   };
 
   const openModal = (schedule = null) => {
@@ -187,12 +196,22 @@ const MySchedulesPage = () => {
     const avgSpeed = 75; // km/h average bus speed
     const travelHours = route.distance / avgSpeed;
 
-    const departure = new Date(`${departureDate}T${departureTime}`);
+    // Create UTC date from inputs (treat inputs as UTC)
+    const [year, month, day] = departureDate.split('-').map(Number);
+    const [hours, minutes] = departureTime.split(':').map(Number);
+    const departure = new Date(Date.UTC(year, month - 1, day, hours, minutes));
     const arrival = new Date(departure.getTime() + travelHours * 60 * 60 * 1000);
 
+    // Format as UTC
+    const arrivalYear = arrival.getUTCFullYear();
+    const arrivalMonth = (arrival.getUTCMonth() + 1).toString().padStart(2, '0');
+    const arrivalDay = arrival.getUTCDate().toString().padStart(2, '0');
+    const arrivalHours = arrival.getUTCHours().toString().padStart(2, '0');
+    const arrivalMinutes = arrival.getUTCMinutes().toString().padStart(2, '0');
+
     return {
-      arrivalDate: arrival.toISOString().split("T")[0],
-      arrivalTime: arrival.toTimeString().slice(0, 5),
+      arrivalDate: `${arrivalYear}-${arrivalMonth}-${arrivalDay}`,
+      arrivalTime: `${arrivalHours}:${arrivalMinutes}`,
     };
   };
 
@@ -253,8 +272,14 @@ const MySchedulesPage = () => {
     setIsSubmitting(true);
     setError("");
 
-    const departureTime = new Date(`${formData.departureDate}T${formData.departureTime}`);
-    const arrivalTime = new Date(`${formData.arrivalDate}T${formData.arrivalTime}`);
+    // Create UTC dates from inputs (treat inputs as UTC to match database storage)
+    const [depYear, depMonth, depDay] = formData.departureDate.split('-').map(Number);
+    const [depHours, depMinutes] = formData.departureTime.split(':').map(Number);
+    const departureTime = new Date(Date.UTC(depYear, depMonth - 1, depDay, depHours, depMinutes));
+
+    const [arrYear, arrMonth, arrDay] = formData.arrivalDate.split('-').map(Number);
+    const [arrHours, arrMinutes] = formData.arrivalTime.split(':').map(Number);
+    const arrivalTime = new Date(Date.UTC(arrYear, arrMonth - 1, arrDay, arrHours, arrMinutes));
 
     if (arrivalTime <= departureTime) {
       setError("Arrival time must be after departure time");

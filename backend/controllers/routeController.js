@@ -1,5 +1,7 @@
 import Route from "../models/route.js";
 import City from "../models/city.js";
+import Schedule from "../models/schedule.js";
+import Bus from "../models/bus.js";
 import { calculateRouteDistance } from "../utils/calculateDistance.js";
 
 // @desc    Get all routes for current carrier
@@ -134,4 +136,34 @@ const deleteRoute = async (req, res) => {
   }
 };
 
-export { getMyRoutes, getRouteById, createRoute, updateRoute, deleteRoute };
+// @desc    Get schedules for a route
+// @route   GET /api/carrier-routes/:id/schedules
+// @access  Private/Carrier
+const getRouteSchedules = async (req, res) => {
+  try {
+    const route = await Route.findOne({ _id: req.params.id, userId: req.user._id });
+
+    if (!route) {
+      return res.status(404).json({ message: "Route not found" });
+    }
+
+    // Get all buses belonging to this carrier
+    const carrierBuses = await Bus.find({ carrierId: req.user._id }).select("_id");
+    const busIds = carrierBuses.map(b => b._id);
+
+    // Get all schedules for this route that use carrier's buses
+    const schedules = await Schedule.find({ 
+      routeId: route._id,
+      busId: { $in: busIds }
+    })
+      .populate("busId", "busName numberPlate")
+      .sort({ departureTime: 1 });
+
+    res.json(schedules);
+  } catch (error) {
+    console.error("Error fetching route schedules:", error);
+    res.status(500).json({ message: "Failed to fetch route schedules" });
+  }
+};
+
+export { getMyRoutes, getRouteById, createRoute, updateRoute, deleteRoute, getRouteSchedules };

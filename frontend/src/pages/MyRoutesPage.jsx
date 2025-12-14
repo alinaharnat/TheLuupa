@@ -10,6 +10,8 @@ import {
   Save,
   MapPin,
   ArrowRight,
+  Clock,
+  DollarSign,
 } from "lucide-react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
@@ -27,6 +29,8 @@ const MyRoutesPage = () => {
   const [editingRoute, setEditingRoute] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [routeSchedules, setRouteSchedules] = useState([]);
+  const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
 
   const [formData, setFormData] = useState({
     cityIds: ["", ""],
@@ -85,17 +89,57 @@ const MyRoutesPage = () => {
     }
   };
 
-  const openModal = (route = null) => {
+  const fetchRouteSchedules = async (routeId, token) => {
+    setIsLoadingSchedules(true);
+    try {
+      const { data } = await axios.get(`/api/carrier-routes/${routeId}/schedules`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      // Initialize date and time fields for editing
+      const schedulesWithDates = data.map((schedule) => ({
+        ...schedule,
+        departureDate: formatDateForInput(schedule.departureTime),
+        departureTime: formatTimeForInput(schedule.departureTime),
+        arrivalDate: formatDateForInput(schedule.arrivalTime),
+        arrivalTime: formatTimeForInput(schedule.arrivalTime),
+      }));
+      setRouteSchedules(schedulesWithDates);
+    } catch (err) {
+      console.error("Failed to fetch route schedules:", err);
+      setRouteSchedules([]);
+    } finally {
+      setIsLoadingSchedules(false);
+    }
+  };
+
+  const formatDateForInput = (dateString) => {
+    const date = new Date(dateString);
+    const year = date.getUTCFullYear();
+    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+    const day = date.getUTCDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatTimeForInput = (dateString) => {
+    const date = new Date(dateString);
+    const hours = date.getUTCHours().toString().padStart(2, '0');
+    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  const openModal = async (route = null) => {
     if (route) {
       setEditingRoute(route);
       setFormData({
         cityIds: route.cityId.map((c) => c._id),
       });
+      await fetchRouteSchedules(route._id, user.token);
     } else {
       setEditingRoute(null);
       setFormData({
         cityIds: ["", ""],
       });
+      setRouteSchedules([]);
     }
     setIsModalOpen(true);
     setError("");
@@ -104,7 +148,46 @@ const MyRoutesPage = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingRoute(null);
+    setRouteSchedules([]);
     setError("");
+  };
+
+  const handleScheduleChange = (scheduleId, field, value) => {
+    setRouteSchedules((prev) =>
+      prev.map((schedule) =>
+        schedule._id === scheduleId ? { ...schedule, [field]: value } : schedule
+      )
+    );
+  };
+
+  const updateSchedule = async (schedule) => {
+    try {
+      const [depYear, depMonth, depDay] = schedule.departureDate.split('-').map(Number);
+      const [depHours, depMinutes] = schedule.departureTime.split(':').map(Number);
+      const departureTime = new Date(Date.UTC(depYear, depMonth - 1, depDay, depHours, depMinutes));
+
+      const [arrYear, arrMonth, arrDay] = schedule.arrivalDate.split('-').map(Number);
+      const [arrHours, arrMinutes] = schedule.arrivalTime.split(':').map(Number);
+      const arrivalTime = new Date(Date.UTC(arrYear, arrMonth - 1, arrDay, arrHours, arrMinutes));
+
+      if (arrivalTime <= departureTime) {
+        setError("Arrival time must be after departure time");
+        return;
+      }
+
+      await axios.put(
+        `/api/carrier-schedules/${schedule._id}`,
+        {
+          departureTime: departureTime.toISOString(),
+          arrivalTime: arrivalTime.toISOString(),
+          price: Number(schedule.price),
+        },
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update schedule");
+      throw err;
+    }
   };
 
   const handleCityChange = (index, value) => {
@@ -149,6 +232,11 @@ const MyRoutesPage = () => {
           { cityIds: validCityIds },
           { headers: { Authorization: `Bearer ${user.token}` } }
         );
+
+        // Update all schedules for this route
+        for (const schedule of routeSchedules) {
+          await updateSchedule(schedule);
+        }
       } else {
         await axios.post(
           "/api/carrier-routes",
@@ -366,6 +454,104 @@ const MyRoutesPage = () => {
                     Distance will be calculated automatically based on city coordinates
                   </p>
                 </div>
+
+                {/* Schedules Section - Only show when editing existing route */}
+                {editingRoute && (
+                  <div className="border-t pt-4 mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Schedules for this Route
+                    </label>
+                    {isLoadingSchedules ? (
+                      <div className="text-center py-4">
+                        <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-[#096B8A] border-t-transparent"></div>
+                        <p className="mt-2 text-xs text-gray-500">Loading schedules...</p>
+                      </div>
+                    ) : routeSchedules.length === 0 ? (
+                      <p className="text-sm text-gray-500 text-center py-4">
+                        No schedules found for this route
+                      </p>
+                    ) : (
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
+                        {routeSchedules.map((schedule) => (
+                            <div
+                              key={schedule._id}
+                              className="border border-gray-200 rounded-md p-3 bg-gray-50"
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-xs font-medium text-gray-600">
+                                  {schedule.busId?.busName} ({schedule.busId?.numberPlate})
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 mb-2">
+                                <div>
+                                  <label className="text-xs text-gray-600 mb-1 block">
+                                    Departure
+                                  </label>
+                                  <div className="flex gap-1">
+                                    <input
+                                      type="date"
+                                      value={schedule.departureDate}
+                                      onChange={(e) =>
+                                        handleScheduleChange(schedule._id, "departureDate", e.target.value)
+                                      }
+                                      className="flex-1 text-xs border border-gray-300 rounded p-1.5"
+                                    />
+                                    <input
+                                      type="time"
+                                      value={schedule.departureTime}
+                                      onChange={(e) =>
+                                        handleScheduleChange(schedule._id, "departureTime", e.target.value)
+                                      }
+                                      className="flex-1 text-xs border border-gray-300 rounded p-1.5"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-xs text-gray-600 mb-1 block">
+                                    Arrival
+                                  </label>
+                                  <div className="flex gap-1">
+                                    <input
+                                      type="date"
+                                      value={schedule.arrivalDate}
+                                      onChange={(e) =>
+                                        handleScheduleChange(schedule._id, "arrivalDate", e.target.value)
+                                      }
+                                      className="flex-1 text-xs border border-gray-300 rounded p-1.5"
+                                    />
+                                    <input
+                                      type="time"
+                                      value={schedule.arrivalTime}
+                                      onChange={(e) =>
+                                        handleScheduleChange(schedule._id, "arrivalTime", e.target.value)
+                                      }
+                                      className="flex-1 text-xs border border-gray-300 rounded p-1.5"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                                  <DollarSign className="w-3 h-3" />
+                                  Price
+                                </label>
+                                <input
+                                  type="number"
+                                  value={schedule.price || 0}
+                                  onChange={(e) =>
+                                    handleScheduleChange(schedule._id, "price", e.target.value)
+                                  }
+                                  className="w-full text-xs border border-gray-300 rounded p-1.5"
+                                  min="0"
+                                  step="0.01"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 mt-6">

@@ -6,6 +6,7 @@ import {
   createRoute,
   updateRoute,
   deleteRoute,
+  getRouteSchedules,
 } from "../controllers/routeController.js";
 
 const router = express.Router();
@@ -13,6 +14,9 @@ const router = express.Router();
 router.route("/")
   .get(protect, carrier, getMyRoutes)
   .post(protect, carrier, createRoute);
+
+router.route("/:id/schedules")
+  .get(protect, carrier, getRouteSchedules);
 
 router.route("/:id")
   .get(protect, carrier, getRouteById)
