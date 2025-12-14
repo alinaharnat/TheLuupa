@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Truck, FileText, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Truck, FileText, Clock, CheckCircle, XCircle, Users } from "lucide-react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -134,7 +134,21 @@ const AdminDashboardPage = () => {
           </div>
 
           {/* Quick Actions */}
-          <div className="mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <Link
+              to="/admin/users"
+              className="block bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+            >
+              <div className="flex items-center justify-center gap-4">
+                <div className="p-3 bg-[#096B8A] rounded-full">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-[#064d63]">Manage Users</h3>
+                  <p className="text-gray-500 text-sm">View, edit, and delete users</p>
+                </div>
+              </div>
+            </Link>
             <Link
               to="/admin/carrier-applications"
               className="block bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"

@@ -7,6 +7,8 @@ import MyTicketsPage from "./pages/MyTicketsPage";
 import SurprisePage from "./pages/SurprisePage";
 import BecomeCarrierPage from "./pages/BecomeCarrierPage";
 import AdminCarrierApplicationsPage from "./pages/AdminCarrierApplicationsPage";
+import AdminUsersPage from "./pages/AdminUsersPage";
+import AdminDashboardPage from "./pages/AdminDashboardPage";
 import CarrierCompanyPage from "./pages/CarrierCompanyPage";
 import MyBusesPage from "./pages/MyBusesPage";
 import MyRoutesPage from "./pages/MyRoutesPage";
@@ -31,6 +33,8 @@ function App() {
         <Route path="/surprise" element={<SurprisePage />} />
         <Route path="/become-carrier" element={<BecomeCarrierPage />} />
         <Route path="/admin/carrier-applications" element={<AdminCarrierApplicationsPage />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
         <Route path="/carrier/company" element={<CarrierCompanyPage />} />
         <Route path="/carrier/buses" element={<MyBusesPage />} />
         <Route path="/carrier/routes" element={<MyRoutesPage />} />

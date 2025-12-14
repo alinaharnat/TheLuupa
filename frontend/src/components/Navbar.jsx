@@ -112,7 +112,7 @@ export default function Navbar() {
                       )}
                       {user.role === "admin" && (
                         <Link
-                          to="/admin/carrier-applications"
+                          to="/admin/dashboard"
                           className="block px-4 py-2 text-sm hover:bg-[#CDEEF2] transition"
                           onClick={() => setDropdownOpen(false)}
                         >
@@ -196,7 +196,7 @@ export default function Navbar() {
                 )}
                 {user.role === "admin" && (
                   <Link
-                    to="/admin/carrier-applications"
+                    to="/admin/dashboard"
                     className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
                   >
                     Admin Panel

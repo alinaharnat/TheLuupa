@@ -4,6 +4,104 @@ import CarrierApplication from '../models/carrierApplication.js';
 import { sendCarrierApplicationStatusEmail } from '../config/email.js';
 
 /**
+ * @desc    Get all users
+ * @route   GET /api/admin/users
+ * @access  Private/Admin
+ */
+const getUsers = async (req, res) => {
+  try {
+    const users = await User.find({})
+      .select('-emailVerificationToken -emailVerificationTokenExpires')
+      .sort({ createdAt: -1 });
+
+    res.json(users);
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ message: 'Server error. Please try again later.' });
+  }
+};
+
+/**
+ * @desc    Update user
+ * @route   PUT /api/admin/users/:id
+ * @access  Private/Admin
+ */
+const updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, role } = req.body;
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Prevent admin from demoting themselves
+    if (user._id.toString() === req.user._id.toString() && role !== 'admin') {
+      return res.status(400).json({ message: 'You cannot change your own role' });
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ email: email.toLowerCase() });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email already in use' });
+      }
+      user.email = email;
+    }
+
+    if (name) user.name = name;
+    if (role && ['admin', 'carrier', 'passenger'].includes(role)) {
+      user.role = role;
+    }
+
+    await user.save();
+
+    res.json({
+      _id: user._id,
+      userId: user.userId,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      message: 'User updated successfully'
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ message: 'Server error. Please try again later.' });
+  }
+};
+
+/**
+ * @desc    Delete user
+ * @route   DELETE /api/admin/users/:id
+ * @access  Private/Admin
+ */
+const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Prevent admin from deleting themselves
+    if (user._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ message: 'You cannot delete your own account' });
+    }
+
+    await User.findByIdAndDelete(id);
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ message: 'Server error. Please try again later.' });
+  }
+};
+
+/**
  * @desc    Get all carrier applications
  * @route   GET /api/admin/carrier-applications
  * @access  Private/Admin
@@ -93,4 +191,4 @@ const reviewCarrierApplication = async (req, res) => {
   }
 };
 
-export { getCarrierApplications, reviewCarrierApplication };
+export { getUsers, updateUser, deleteUser, getCarrierApplications, reviewCarrierApplication };
