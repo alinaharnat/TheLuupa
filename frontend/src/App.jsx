@@ -4,6 +4,7 @@ import ProfilePage from "./pages/ProfilePage";
 import SearchResultsPage from "./pages/SearchResultsPage";
 import BookingPage from "./pages/BookingPage";
 import MyTicketsPage from "./pages/MyTicketsPage";
+import NotificationsPage from "./pages/NotificationsPage";
 import SurprisePage from "./pages/SurprisePage";
 import BecomeCarrierPage from "./pages/BecomeCarrierPage";
 import AdminCarrierApplicationsPage from "./pages/AdminCarrierApplicationsPage";
@@ -30,6 +31,7 @@ function App() {
         <Route path="/search" element={<SearchResultsPage />} />
         <Route path="/booking/:scheduleId" element={<BookingPage />} />
         <Route path="/my-tickets" element={<MyTicketsPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/surprise" element={<SurprisePage />} />
         <Route path="/become-carrier" element={<BecomeCarrierPage />} />
         <Route path="/admin/carrier-applications" element={<AdminCarrierApplicationsPage />} />

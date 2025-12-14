@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import { Menu, X, User } from "lucide-react";
+import { Menu, X, User, Bell } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 import { refreshUserData } from "../utils/refreshUser";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
@@ -15,7 +17,8 @@ export default function Navbar() {
     const loadUser = async () => {
       const storedUser = localStorage.getItem("userInfo");
       if (storedUser) {
-        setUser(JSON.parse(storedUser));
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
         // Refresh from server
         const freshData = await refreshUserData();
         if (freshData) {
@@ -25,6 +28,27 @@ export default function Navbar() {
     };
     loadUser();
   }, []);
+
+  // Poll for unread count every 30 seconds
+  useEffect(() => {
+    if (!user || !user.token) return;
+
+    const fetchCount = async () => {
+      try {
+        const { data } = await axios.get("/api/users/notifications/unread-count", {
+          headers: { Authorization: `Bearer ${user.token}` },
+        });
+        setUnreadCount(data.count);
+      } catch (err) {
+        console.error("Failed to fetch unread count:", err);
+      }
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 30000); // Poll every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -83,14 +107,28 @@ export default function Navbar() {
               )}
 
               {user ? (
-                <div className="relative" ref={dropdownRef}>
-                  <button
-                    onClick={() => setDropdownOpen(!dropdownOpen)}
-                    className="flex items-center text-white px-4 py-2 rounded-md text-sm font-medium hover:text-[#CDEEF2] transition"
-                  >
-                    <User className="w-4 h-4 mr-1" />
-                    {user.name || "User"}
-                  </button>
+                <>
+                  {user.role === "passenger" && (
+                    <Link
+                      to="/notifications"
+                      className="relative text-white px-4 py-2 rounded-md text-sm font-medium hover:text-[#CDEEF2] transition"
+                    >
+                      <Bell className="w-5 h-5" />
+                      {unreadCount > 0 && (
+                        <span className="absolute top-0 right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                          {unreadCount > 9 ? "9+" : unreadCount}
+                        </span>
+                      )}
+                    </Link>
+                  )}
+                  <div className="relative" ref={dropdownRef}>
+                    <button
+                      onClick={() => setDropdownOpen(!dropdownOpen)}
+                      className="flex items-center text-white px-4 py-2 rounded-md text-sm font-medium hover:text-[#CDEEF2] transition"
+                    >
+                      <User className="w-4 h-4 mr-1" />
+                      {user.name || "User"}
+                    </button>
 
                   {dropdownOpen && (
                     <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-md text-gray-800">
@@ -102,13 +140,27 @@ export default function Navbar() {
                         Profile
                       </Link>
                       {user.role === "passenger" && (
-                        <Link
-                          to="/my-tickets"
-                          className="block px-4 py-2 text-sm hover:bg-[#CDEEF2] transition"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          My Tickets
-                        </Link>
+                        <>
+                          <Link
+                            to="/my-tickets"
+                            className="block px-4 py-2 text-sm hover:bg-[#CDEEF2] transition"
+                            onClick={() => setDropdownOpen(false)}
+                          >
+                            My Tickets
+                          </Link>
+                          <Link
+                            to="/notifications"
+                            className="block px-4 py-2 text-sm hover:bg-[#CDEEF2] transition relative"
+                            onClick={() => setDropdownOpen(false)}
+                          >
+                            Notifications
+                            {unreadCount > 0 && (
+                              <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                                {unreadCount > 9 ? "9+" : unreadCount}
+                              </span>
+                            )}
+                          </Link>
+                        </>
                       )}
                       {user.role === "admin" && (
                         <Link
@@ -128,6 +180,7 @@ export default function Navbar() {
                     </div>
                   )}
                 </div>
+                </>
               ) : (
                 <>
                   <Link
@@ -187,12 +240,25 @@ export default function Navbar() {
                   Profile
                 </Link>
                 {user.role === "passenger" && (
-                  <Link
-                    to="/my-tickets"
-                    className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
-                  >
-                    My Tickets
-                  </Link>
+                  <>
+                    <Link
+                      to="/my-tickets"
+                      className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium"
+                    >
+                      My Tickets
+                    </Link>
+                    <Link
+                      to="/notifications"
+                      className="text-white hover:text-[#CDEEF2] block px-3 py-2 rounded-md text-base font-medium relative"
+                    >
+                      Notifications
+                      {unreadCount > 0 && (
+                        <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                          {unreadCount > 9 ? "9+" : unreadCount}
+                        </span>
+                      )}
+                    </Link>
+                  </>
                 )}
                 {user.role === "admin" && (
                   <Link

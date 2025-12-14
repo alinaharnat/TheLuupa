@@ -3,6 +3,8 @@ import Bus from "../models/bus.js";
 import Route from "../models/route.js";
 import Seat from "../models/seat.js";
 import Booking from "../models/booking.js";
+import Notification from "../models/notification.js";
+import { sendScheduleChangeEmail, sendScheduleCancellationEmail } from "../config/email.js";
 
 // @desc    Get all schedules for current carrier
 // @route   GET /api/carrier-schedules
@@ -135,6 +137,11 @@ const updateSchedule = async (req, res) => {
       return res.status(403).json({ message: "Not authorized" });
     }
 
+    // Track changes for notifications (only time changes, not price)
+    const changes = {};
+    const oldDepartureTime = schedule.departureTime;
+    const oldArrivalTime = schedule.arrivalTime;
+
     // If changing bus, verify new bus belongs to carrier
     if (busId && busId !== schedule.busId._id.toString()) {
       const bus = await Bus.findOne({ _id: busId, carrierId: req.user._id });
@@ -144,18 +151,29 @@ const updateSchedule = async (req, res) => {
       schedule.busId = busId;
     }
 
-    // If changing route, verify new route belongs to carrier
+    // Route cannot be changed after schedule creation
     if (routeId && routeId !== schedule.routeId.toString()) {
-      const route = await Route.findOne({ _id: routeId, userId: req.user._id });
-      if (!route) {
-        return res.status(404).json({ message: "Route not found or not authorized" });
-      }
-      schedule.routeId = routeId;
+      return res.status(400).json({ message: "Route cannot be changed after schedule creation" });
     }
 
-    if (departureTime) schedule.departureTime = departureTime;
-    if (arrivalTime) schedule.arrivalTime = arrivalTime;
-    if (price !== undefined) schedule.price = price;
+    if (departureTime) {
+      const newDepTime = new Date(departureTime);
+      if (newDepTime.getTime() !== oldDepartureTime.getTime()) {
+        changes.departureTime = { old: oldDepartureTime, new: newDepTime };
+      }
+      schedule.departureTime = departureTime;
+    }
+    if (arrivalTime) {
+      const newArrTime = new Date(arrivalTime);
+      if (newArrTime.getTime() !== oldArrivalTime.getTime()) {
+        changes.arrivalTime = { old: oldArrivalTime, new: newArrTime };
+      }
+      schedule.arrivalTime = arrivalTime;
+    }
+    // Price can be updated but we don't notify about it
+    if (price !== undefined) {
+      schedule.price = price;
+    }
 
     // Validate times
     if (new Date(schedule.arrivalTime) <= new Date(schedule.departureTime)) {
@@ -163,6 +181,91 @@ const updateSchedule = async (req, res) => {
     }
 
     await schedule.save();
+
+    // If there are changes, notify affected passengers
+    if (Object.keys(changes).length > 0) {
+      try {
+        // Get all confirmed and pending bookings for this schedule
+        const bookings = await Booking.find({
+          scheduleId: schedule._id,
+          status: { $in: ["pending", "confirmed"] }
+        }).populate("userId", "name email");
+
+        // Create notifications and send emails
+        for (const booking of bookings) {
+          if (!booking.userId || !booking.userId.email) continue;
+
+          // Determine notification type and message
+          let notificationType = "schedule_change";
+          let title = "Schedule Update";
+          let message = "Your trip schedule has been updated.";
+
+          if (changes.departureTime || changes.arrivalTime) {
+            const isDelay = changes.departureTime && 
+              new Date(changes.departureTime.new) > new Date(changes.departureTime.old);
+            if (isDelay) {
+              notificationType = "delay";
+              title = "Trip Delay";
+              message = "Your trip has been delayed.";
+            }
+          }
+
+          // Get schedule details before creating notification
+          const route = await Route.findById(schedule.routeId).populate("cityId", "name");
+          const bus = await Bus.findById(schedule.busId);
+          
+          const fromCity = route?.cityId[0]?.name || "Unknown";
+          const toCity = route?.cityId[route.cityId.length - 1]?.name || "Unknown";
+
+          // Create notification with schedule details stored
+          const notification = await Notification.create({
+            userId: booking.userId._id,
+            bookingId: booking._id,
+            scheduleId: schedule._id,
+            type: notificationType,
+            title,
+            message,
+            changes,
+            scheduleDetails: {
+              from: fromCity,
+              to: toCity,
+              busName: bus?.busName || "Unknown",
+              busNumberPlate: bus?.numberPlate || "Unknown",
+              departureTime: schedule.departureTime,
+              arrivalTime: schedule.arrivalTime,
+            },
+            isRead: false,
+            emailSent: false,
+          });
+
+          // Send email notification
+          try {
+
+            await sendScheduleChangeEmail(booking.userId.email, {
+              userName: booking.userId.name || booking.userId.email.split("@")[0],
+              bookingId: booking._id.toString(),
+              from: fromCity,
+              to: toCity,
+              busNumber: bus?.numberPlate || "Unknown",
+              changes,
+              oldDepartureTime,
+              newDepartureTime: schedule.departureTime,
+              oldArrivalTime,
+              newArrivalTime: schedule.arrivalTime,
+            });
+
+            notification.emailSent = true;
+            await notification.save();
+          } catch (emailError) {
+            console.error(`Error sending email for booking ${booking._id}:`, emailError);
+            // Continue even if email fails
+          }
+        }
+      } catch (notificationError) {
+        console.error("Error creating notifications:", notificationError);
+        // Don't fail the schedule update if notifications fail
+      }
+    }
 
     const updatedSchedule = await Schedule.findById(schedule._id)
       .populate("busId", "busName numberPlate")
@@ -184,7 +287,11 @@ const updateSchedule = async (req, res) => {
 const deleteSchedule = async (req, res) => {
   try {
     const schedule = await Schedule.findById(req.params.id)
-      .populate("busId", "carrierId");
+      .populate("busId", "carrierId")
+      .populate({
+        path: "routeId",
+        populate: { path: "cityId", select: "name" }
+      });
 
     if (!schedule) {
       return res.status(404).json({ message: "Schedule not found" });
@@ -193,6 +300,76 @@ const deleteSchedule = async (req, res) => {
     // Verify ownership
     if (schedule.busId.carrierId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Not authorized" });
+    }
+
+    // Get all affected bookings before deleting
+    const bookings = await Booking.find({
+      scheduleId: schedule._id,
+      status: { $in: ["pending", "confirmed"] }
+    }).populate("userId", "name email");
+
+    // Notify affected passengers about cancellation
+    if (bookings.length > 0) {
+      try {
+        const route = schedule.routeId;
+        const bus = schedule.busId;
+        const fromCity = route?.cityId?.[0]?.name || "Unknown";
+        const toCity = route?.cityId?.[route.cityId.length - 1]?.name || "Unknown";
+
+        for (const booking of bookings) {
+          if (!booking.userId || !booking.userId.email) continue;
+
+          // Create cancellation notification with schedule details stored
+          const notification = await Notification.create({
+            userId: booking.userId._id,
+            bookingId: booking._id,
+            scheduleId: schedule._id,
+            type: "cancellation",
+            title: "Trip Cancelled",
+            message: "Your trip has been cancelled by the carrier.",
+            changes: {},
+            scheduleDetails: {
+              from: fromCity,
+              to: toCity,
+              busName: bus?.busName || "Unknown",
+              busNumberPlate: bus?.numberPlate || "Unknown",
+              departureTime: schedule.departureTime,
+              arrivalTime: schedule.arrivalTime,
+            },
+            isRead: false,
+            emailSent: false,
+          });
+
+          // Send cancellation email
+          try {
+            await sendScheduleCancellationEmail(booking.userId.email, {
+              userName: booking.userId.name || booking.userId.email.split("@")[0],
+              bookingId: booking._id.toString(),
+              from: fromCity,
+              to: toCity,
+              busNumber: bus?.numberPlate || "Unknown",
+              departureTime: schedule.departureTime,
+              arrivalTime: schedule.arrivalTime,
+            });
+
+            // Update notification
+            await Notification.findOneAndUpdate(
+              { userId: booking.userId._id, bookingId: booking._id, scheduleId: schedule._id, type: "cancellation" },
+              { emailSent: true }
+            );
+          } catch (emailError) {
+            console.error(`Error sending cancellation email for booking ${booking._id}:`, emailError);
+          }
+
+          // Cancel the booking and mark as cancelled by carrier
+          booking.status = "cancelled";
+          booking.cancelledByCarrier = true;
+          await booking.save();
+        }
+      } catch (notificationError) {
+        console.error("Error creating cancellation notifications:", notificationError);
+        // Continue with deletion even if notifications fail
+      }
     }
 
     await schedule.deleteOne();

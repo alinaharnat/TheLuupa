@@ -526,20 +526,38 @@ const MySchedulesPage = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Route <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    name="routeId"
-                    value={formData.routeId}
-                    onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded-md p-2.5 focus:outline-none focus:ring-2 focus:ring-[#096B8A]"
-                    required
-                  >
-                    <option value="">Select route</option>
-                    {routes.map((route) => (
-                      <option key={route._id} value={route._id}>
-                        {getRouteDisplay(route, true)} ({route.distance} km)
+                  {editingSchedule ? (
+                    <select
+                      name="routeId"
+                      value={formData.routeId}
+                      className="w-full border border-gray-200 rounded-md p-2.5 bg-gray-50 text-gray-600"
+                      disabled
+                    >
+                      <option value={formData.routeId}>
+                        {getRouteDisplay(routes.find(r => r._id === formData.routeId), true)} ({routes.find(r => r._id === formData.routeId)?.distance} km)
                       </option>
-                    ))}
-                  </select>
+                    </select>
+                  ) : (
+                    <select
+                      name="routeId"
+                      value={formData.routeId}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-md p-2.5 focus:outline-none focus:ring-2 focus:ring-[#096B8A]"
+                      required
+                    >
+                      <option value="">Select route</option>
+                      {routes.map((route) => (
+                        <option key={route._id} value={route._id}>
+                          {getRouteDisplay(route, true)} ({route.distance} km)
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {editingSchedule && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Route cannot be changed after schedule creation
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -571,41 +589,54 @@ const MySchedulesPage = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Estimated Arrival
-                  </label>
-                  <div className="flex gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Arrival Date <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="date"
+                      name="arrivalDate"
                       value={formData.arrivalDate}
-                      className="flex-1 border border-gray-200 rounded-md p-2.5 bg-gray-50 text-gray-600"
-                      readOnly
-                    />
-                    <input
-                      type="time"
-                      value={formData.arrivalTime}
-                      className="flex-1 border border-gray-200 rounded-md p-2.5 bg-gray-50 text-gray-600"
-                      readOnly
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-md p-2.5 focus:outline-none focus:ring-2 focus:ring-[#096B8A]"
+                      required
                     />
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Auto-calculated based on route distance (~75 km/h avg speed)
-                  </p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Arrival Time <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      name="arrivalTime"
+                      value={formData.arrivalTime}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-md p-2.5 focus:outline-none focus:ring-2 focus:ring-[#096B8A]"
+                      required
+                    />
+                  </div>
                 </div>
+                <p className="text-xs text-gray-500 -mt-2">
+                  Auto-calculated when route is selected, but you can manually adjust
+                </p>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Price ($)
+                    Price ($) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
+                    name="price"
                     value={formData.price}
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-gray-50 text-gray-600"
-                    readOnly
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-md p-2.5 focus:outline-none focus:ring-2 focus:ring-[#096B8A]"
+                    min="0"
+                    step="0.01"
+                    required
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Auto-calculated: Standard $0.05/km, Luxury $0.08/km, Minibus $0.04/km
+                    Auto-calculated when bus and route are selected, but you can manually adjust
                   </p>
                 </div>
               </div>
@@ -634,30 +665,54 @@ const MySchedulesPage = () => {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
-            <h2 className="text-xl font-semibold text-[#064d63] mb-4">Delete Schedule?</h2>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this schedule? This action cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors font-medium"
-              >
-                Delete
-              </button>
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors font-medium"
-              >
-                Cancel
-              </button>
+      {deleteConfirm && (() => {
+        const scheduleToDelete = schedules.find(s => s._id === deleteConfirm);
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <h2 className="text-xl font-semibold text-[#064d63] mb-4">Cancel Schedule?</h2>
+              <div className="mb-4">
+                <p className="text-gray-700 mb-3">
+                  Are you sure you want to cancel this schedule? This action cannot be undone.
+                </p>
+                {scheduleToDelete && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mb-3">
+                    <p className="text-sm font-medium text-orange-800 mb-1">⚠️ Important:</p>
+                    <p className="text-sm text-orange-700">
+                      All passengers with bookings for this trip will be notified and their bookings will be cancelled.
+                    </p>
+                  </div>
+                )}
+                {scheduleToDelete && (
+                  <div className="bg-gray-50 rounded-md p-3 text-sm">
+                    <p className="font-medium text-gray-700 mb-1">Schedule Details:</p>
+                    <p className="text-gray-600">
+                      {getRouteDisplay(scheduleToDelete.routeId)} • {scheduleToDelete.busId?.busName}
+                    </p>
+                    <p className="text-gray-600">
+                      {formatDateTime(scheduleToDelete.departureTime)}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleDelete(deleteConfirm)}
+                  className="flex-1 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors font-medium"
+                >
+                  Yes, Cancel Schedule
+                </button>
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors font-medium"
+                >
+                  No, Keep Schedule
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <Footer />
     </div>

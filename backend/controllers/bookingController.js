@@ -231,6 +231,7 @@ const getUserBookings = async (req, res) => {
       return {
         _id: booking._id,
         status: booking.status,
+        cancelledByCarrier: booking.cancelledByCarrier || false,
         expiresAt: booking.expiresAt,
         seats: booking.seatId?.map(s => s.seatNumber) || [],
         createdAt: booking.createdAt,

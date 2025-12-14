@@ -9,6 +9,7 @@ const bookingSchema = new mongoose.Schema({
     enum: ["pending", "confirmed", "completed", "cancelled", "failed", "expired"],
     default: "pending",
   },
+  cancelledByCarrier: { type: Boolean, default: false }, // Flag to track if booking was cancelled by carrier
   expiresAt: { type: Date }, // Expiration time for pending bookings (15 minutes)
   isSurprise: { type: Boolean, default: false }, // Flag to indicate if this is a surprise trip
   destinationRevealed: { type: Boolean, default: false }, // Flag to track if destination has been revealed

@@ -370,5 +370,178 @@ const sendCarrierApplicationStatusEmail = async (email, applicationDetails) => {
   }
 };
 
-export { sendVerificationEmail, sendCancellationEmail, sendBookingConfirmationEmail, sendSurpriseReminderEmail, sendCarrierApplicationStatusEmail };
+const sendScheduleChangeEmail = async (email, notificationDetails) => {
+  try {
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+    const formatDateTime = (dateString) => {
+      const date = new Date(dateString);
+      return date.toLocaleString("en-GB", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+      });
+    };
+
+    const changesList = [];
+    if (notificationDetails.changes.departureTime) {
+      changesList.push(
+        `<li><strong>Departure Time:</strong> Changed from ${formatDateTime(notificationDetails.oldDepartureTime)} to ${formatDateTime(notificationDetails.newDepartureTime)}</li>`
+      );
+    }
+    if (notificationDetails.changes.arrivalTime) {
+      changesList.push(
+        `<li><strong>Arrival Time:</strong> Changed from ${formatDateTime(notificationDetails.oldArrivalTime)} to ${formatDateTime(notificationDetails.newArrivalTime)}</li>`
+      );
+    }
+
+    const isDelay = notificationDetails.changes.departureTime && 
+      new Date(notificationDetails.newDepartureTime) > new Date(notificationDetails.oldDepartureTime);
+
+    const msg = {
+      to: email,
+      from: process.env.EMAIL_FROM,
+      subject: isDelay 
+        ? `⚠️ Trip Delay Notification - TheLùůpa` 
+        : `📅 Schedule Update - TheLùůpa`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+          <div style="background-color: #096B8A; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0;">TheLùůpa</h1>
+          </div>
+          
+          <div style="padding: 30px; background-color: #f9f9f9;">
+            <h2 style="color: #064d63; margin-top: 0;">${isDelay ? "⚠️ Trip Delay Notification" : "📅 Schedule Update"}</h2>
+            
+            <p>Dear ${notificationDetails.userName},</p>
+            
+            <p>${isDelay 
+              ? "We regret to inform you that your trip has been delayed." 
+              : "Your trip schedule has been updated. Please review the changes below."}</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #096B8A;">
+              <h3 style="color: #064d63; margin-top: 0;">Booking Details:</h3>
+              <p><strong>Booking ID:</strong> ${notificationDetails.bookingId}</p>
+              <p><strong>Route:</strong> ${notificationDetails.from} → ${notificationDetails.to}</p>
+              <p><strong>Bus Number:</strong> ${notificationDetails.busNumber}</p>
+            </div>
+
+            <div style="background-color: ${isDelay ? "#fff3e0" : "#e3f2fd"}; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${isDelay ? "#ff9800" : "#2196f3"};">
+              <h3 style="color: ${isDelay ? "#e65100" : "#1565c0"}; margin-top: 0;">Changes Made:</h3>
+              <ul style="margin: 0; padding-left: 20px;">
+                ${changesList.join("")}
+              </ul>
+            </div>
+
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; font-size: 14px; color: #666;">
+                <strong>Note:</strong> If you have any questions or concerns about these changes, please contact our support team.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+              <p style="color: #666; font-size: 12px;">
+                This is an automated notification from TheLùůpa.<br>
+                Please do not reply to this email.
+              </p>
+            </div>
+          </div>
+        </div>
+      `,
+    };
+
+    await sgMail.send(msg);
+    console.log(`Schedule change email sent to ${email}`);
+  } catch (error) {
+    console.error("Error sending schedule change email:", error);
+    throw new Error("Failed to send schedule change email.");
+  }
+};
+
+const sendScheduleCancellationEmail = async (email, cancellationDetails) => {
+  try {
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+    const formatDateTime = (dateString) => {
+      const date = new Date(dateString);
+      return date.toLocaleString("en-GB", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+      });
+    };
+
+    const formattedDeparture = formatDateTime(cancellationDetails.departureTime);
+    const formattedArrival = formatDateTime(cancellationDetails.arrivalTime);
+
+    const msg = {
+      to: email,
+      from: process.env.EMAIL_FROM,
+      subject: `❌ Trip Cancelled - TheLùůpa`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+          <div style="background-color: #096B8A; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0;">TheLùůpa</h1>
+          </div>
+          
+          <div style="padding: 30px; background-color: #f9f9f9;">
+            <h2 style="color: #064d63; margin-top: 0;">❌ Trip Cancelled</h2>
+            
+            <p>Dear ${cancellationDetails.userName},</p>
+            
+            <p>We regret to inform you that your trip has been cancelled by the carrier.</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #096B8A;">
+              <h3 style="color: #064d63; margin-top: 0;">Booking Details:</h3>
+              <p><strong>Booking ID:</strong> ${cancellationDetails.bookingId}</p>
+              <p><strong>Route:</strong> ${cancellationDetails.from} → ${cancellationDetails.to}</p>
+              <p><strong>Bus Number:</strong> ${cancellationDetails.busNumber}</p>
+              <p><strong>Departure:</strong> ${formattedDeparture}</p>
+              <p><strong>Arrival:</strong> ${formattedArrival}</p>
+            </div>
+
+            <div style="background-color: #ffebee; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f44336;">
+              <h3 style="color: #c62828; margin-top: 0;">What happens next?</h3>
+              <p style="margin: 0; color: #666;">
+                Your booking has been automatically cancelled. If you have already made a payment, 
+                you will receive a full refund according to our refund policy. Please check your 
+                account or contact our support team for more information.
+              </p>
+            </div>
+
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; font-size: 14px; color: #666;">
+                <strong>Note:</strong> If you have any questions or concerns about this cancellation, 
+                please contact our support team. We apologize for any inconvenience.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+              <p style="color: #666; font-size: 12px;">
+                This is an automated notification from TheLùůpa.<br>
+                Please do not reply to this email.
+              </p>
+            </div>
+          </div>
+        </div>
+      `,
+    };
+
+    await sgMail.send(msg);
+    console.log(`Schedule cancellation email sent to ${email}`);
+  } catch (error) {
+    console.error("Error sending schedule cancellation email:", error);
+    throw new Error("Failed to send schedule cancellation email.");
+  }
+};
+
+export { sendVerificationEmail, sendCancellationEmail, sendBookingConfirmationEmail, sendSurpriseReminderEmail, sendCarrierApplicationStatusEmail, sendScheduleChangeEmail, sendScheduleCancellationEmail };
 

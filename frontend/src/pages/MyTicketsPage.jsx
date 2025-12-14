@@ -363,8 +363,10 @@ const MyTicketsPage = () => {
                             booking.status
                           )}`}
                         >
-                          {booking.status.charAt(0).toUpperCase() +
-                            booking.status.slice(1)}
+                          {booking.status === "cancelled" && booking.cancelledByCarrier
+                            ? "Cancelled by Carrier"
+                            : booking.status.charAt(0).toUpperCase() +
+                              booking.status.slice(1)}
                         </span>
                         {booking.status === "pending" && booking.expiresAt && (
                           <span className="text-xs text-orange-600 font-medium">
