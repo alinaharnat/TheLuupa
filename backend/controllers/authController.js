@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { generateUserId } from '../utils/generateId.js';
 import { generateToken, generateEmailVerificationToken } from '../utils/generateToken.js';
 import { sendVerificationEmail } from '../config/email.js';
+import { AUTH } from '../config/constants.js';
 
 /**
  * @desc    Sends a verification code to the specified email.
@@ -20,7 +21,7 @@ const sendVerificationCode = async (req, res) => {
 
   try {
     const verificationToken = generateEmailVerificationToken();
-    const tokenExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+    const tokenExpires = new Date(Date.now() + AUTH.EMAIL_VERIFICATION_EXPIRY_MS);
 
     let user = await User.findOne({ email });
 
@@ -123,11 +124,10 @@ export const handleGoogleCallback = async (req, res) => {
 
   const user = req.user;
 
-  // Генеруємо JWT так само, як у твоїй email-системі
-  const token = generateToken(user._id);  // ти вже маєш цей генератор
+  // Generate JWT same as in email authentication
+  const token = generateToken(user._id);
 
-  // Можеш передати дані назад на фронтенд у вигляді редіректу з параметрами або JSON
-  // Наприклад, якщо твій фронтенд — React SPA, ти можеш редірект на frontend з token у query
+  // Redirect back to frontend with token in query params
   const redirectUrl = process.env.FRONTEND_URL + `/auth/success?token=${token}`;
   return res.redirect(redirectUrl);
 };

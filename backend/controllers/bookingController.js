@@ -4,6 +4,7 @@ import Seat from '../models/seat.js';
 import Payment from '../models/payment.js';
 import mongoose from 'mongoose';
 import { sendCancellationEmail, sendBookingConfirmationEmail } from '../config/email.js';
+import { BOOKING, DEFAULTS } from '../config/constants.js';
 
 /**
  * @desc    Create new booking
@@ -23,7 +24,7 @@ const createBooking = async (req, res) => {
       return res.status(400).json({ message: 'Please provide scheduleId and array of seatNumbers' });
     }
 
-    // Проверяем существование расписания
+    // Check if schedule exists
     const schedule = await Schedule.findById(scheduleId)
       .populate('busId')
       .populate({
@@ -48,13 +49,13 @@ const createBooking = async (req, res) => {
       return res.status(400).json({ message: 'Schedule is missing route information' });
     }
 
-    // Проверяем, что рейс еще не отправился
+    // Check if trip has not departed yet
     if (new Date() > schedule.departureTime) {
       await session.abortTransaction();
       return res.status(400).json({ message: 'Cannot book seats for past trips' });
     }
 
-    // Находим места по номерам для данного автобуса
+    // Find seats by numbers for this bus
     const busId = schedule.busId._id || schedule.busId;
     const seats = await Seat.find({
       busId: busId,
@@ -66,7 +67,7 @@ const createBooking = async (req, res) => {
       return res.status(400).json({ message: 'Some seat numbers are invalid' });
     }
 
-    // Проверяем, что места не заняты для этого рейса
+    // Check if seats are not already booked for this trip
     // Exclude expired pending bookings
     const existingBookings = await Booking.find({
       scheduleId: scheduleId,
@@ -82,8 +83,8 @@ const createBooking = async (req, res) => {
       return res.status(400).json({ message: 'Some of the selected seats are already booked' });
     }
 
-    // Создаем бронирование (expires in 15 minutes if not paid)
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    // Create booking (expires if not paid)
+    const expiresAt = new Date(Date.now() + BOOKING.EXPIRY_MS);
     const booking = await Booking.create([{
       userId: userId,
       scheduleId: scheduleId,
@@ -94,7 +95,7 @@ const createBooking = async (req, res) => {
       destinationRevealed: false
     }], { session });
 
-    // Создаем платеж
+    // Create payment
     const totalAmount = schedule.price * seats.length;
     const payment = await Payment.create([{
       bookingId: booking[0]._id,
@@ -105,7 +106,7 @@ const createBooking = async (req, res) => {
 
     await session.commitTransaction();
 
-    // Получаем полную информацию о бронировании
+    // Get full booking information
     const fullBooking = await Booking.findById(booking[0]._id)
       .populate('userId', 'name email')
       .populate({
@@ -202,7 +203,7 @@ const getUserBookings = async (req, res) => {
       .populate('seatId', 'seatNumber')
       .sort({ createdAt: -1 });
 
-    // Получаем платежи для каждого бронирования
+    // Get payment for each booking
     const bookingsWithPayments = await Promise.all(bookings.map(async (booking) => {
       const payment = await Payment.findOne({ bookingId: booking._id });
 
@@ -224,9 +225,9 @@ const getUserBookings = async (req, res) => {
       const fromCity = cities[0]?.name || 'Unknown';
       const destinationCity = cities[cities.length - 1]?.name || 'Unknown';
 
-      // Check if 5 hours before departure
+      // Check if within reveal window before departure
       const hoursUntilDeparture = (new Date(booking.scheduleId.departureTime) - new Date()) / (1000 * 60 * 60);
-      const canReveal = hoursUntilDeparture <= 5;
+      const canReveal = hoursUntilDeparture <= BOOKING.HOURS_BEFORE_REVEAL_DESTINATION;
 
       return {
         _id: booking._id,
@@ -293,7 +294,7 @@ const getBookingById = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    // Проверяем, что бронирование принадлежит пользователю
+    // Check if booking belongs to user
     if (booking.userId._id.toString() !== userId.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -313,9 +314,9 @@ const getBookingById = async (req, res) => {
     const fromCity = cities[0]?.name || 'Unknown';
     const destinationCity = cities[cities.length - 1]?.name || 'Unknown';
 
-    // Check if 5 hours before departure
+    // Check if within reveal window before departure
     const hoursUntilDeparture = (new Date(booking.scheduleId.departureTime) - new Date()) / (1000 * 60 * 60);
-    const canReveal = hoursUntilDeparture <= 5;
+    const canReveal = hoursUntilDeparture <= BOOKING.HOURS_BEFORE_REVEAL_DESTINATION;
 
     res.json({
       _id: booking._id,
@@ -376,23 +377,23 @@ const cancelBooking = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    // Проверяем, что бронирование принадлежит пользователю
+    // Check if booking belongs to user
     if (booking.userId._id.toString() !== userId.toString()) {
       await session.abortTransaction();
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    // Проверяем, что бронирование можно отменить
+    // Check if booking can be cancelled
     if (booking.status === 'cancelled') {
       await session.abortTransaction();
       return res.status(400).json({ message: 'Booking is already cancelled' });
     }
 
-    // Проверяем, что до отправления осталось больше 2 часов
+    // Check if cancellation window has passed
     const hoursUntilDeparture = (booking.scheduleId.departureTime - new Date()) / (1000 * 60 * 60);
-    if (hoursUntilDeparture < 2) {
+    if (hoursUntilDeparture < BOOKING.MIN_HOURS_BEFORE_CANCEL) {
       await session.abortTransaction();
-      return res.status(400).json({ message: 'Cannot cancel booking less than 2 hours before departure' });
+      return res.status(400).json({ message: `Cannot cancel booking less than ${BOOKING.MIN_HOURS_BEFORE_CANCEL} hours before departure` });
     }
 
     // Get payment details before updating
@@ -400,11 +401,11 @@ const cancelBooking = async (req, res) => {
     const refundAmount = payment ? payment.amount : 0;
     const paymentMethod = payment ? payment.method : 'credit_card';
 
-    // Отменяем бронирование
+    // Cancel booking
     booking.status = 'cancelled';
     await booking.save({ session });
 
-    // Обновляем статус платежа
+    // Update payment status
     if (payment) {
       await Payment.findOneAndUpdate(
         { bookingId: booking._id },
@@ -473,10 +474,10 @@ const getAvailableSeats = async (req, res) => {
       return res.status(404).json({ message: 'Schedule not found' });
     }
 
-    // Получаем все места для автобуса
+    // Get all seats for the bus
     const allSeats = await Seat.find({ busId: schedule.busId._id }).sort({ seatNumber: 1 });
 
-    // Получаем забронированные места для этого рейса (exclude expired pending)
+    // Get booked seats for this trip (exclude expired pending)
     const bookings = await Booking.find({
       scheduleId: scheduleId,
       $or: [
@@ -487,7 +488,7 @@ const getAvailableSeats = async (req, res) => {
 
     const bookedSeatIds = bookings.flatMap(booking => booking.seatId.map(id => id.toString()));
 
-    // Формируем список мест с их статусом
+    // Build seats list with their status
     const seats = allSeats.map(seat => ({
       _id: seat._id,
       seatNumber: seat.seatNumber,
@@ -590,25 +591,25 @@ const revealDestination = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    // Проверяем, что бронирование принадлежит пользователю
+    // Check if booking belongs to user
     if (booking.userId.toString() !== userId.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    // Проверяем, что это surprise trip
+    // Check if this is a surprise trip
     if (!booking.isSurprise) {
       return res.status(400).json({ message: 'This is not a surprise trip' });
     }
 
-    // Проверяем, что destination уже не revealed
+    // Check if destination is already revealed
     if (booking.destinationRevealed) {
       return res.status(400).json({ message: 'Destination already revealed' });
     }
 
-    // Проверяем, что до отправления осталось 5 часов или меньше
+    // Check if within reveal window before departure
     const hoursUntilDeparture = (new Date(booking.scheduleId.departureTime) - new Date()) / (1000 * 60 * 60);
-    if (hoursUntilDeparture > 5) {
-      return res.status(400).json({ message: 'Destination can only be revealed 5 hours before departure' });
+    if (hoursUntilDeparture > BOOKING.HOURS_BEFORE_REVEAL_DESTINATION) {
+      return res.status(400).json({ message: `Destination can only be revealed ${BOOKING.HOURS_BEFORE_REVEAL_DESTINATION} hours before departure` });
     }
 
     // Reveal destination

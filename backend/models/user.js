@@ -9,13 +9,13 @@ const userSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: [true, 'Будь ласка, вкажіть вашу електронну пошту'], // Повідомлення про помилку валідації
+    required: [true, 'Please provide your email'],
     unique: true,
-    trim: true, // Видаляє пробіли на початку та в кінці
-    lowercase: true, // Зберігає email в нижньому регістрі
-    match: [ // Валідація формату email
+    trim: true,
+    lowercase: true,
+    match: [
       /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
-      'Будь ласка, вкажіть дійсну електронну пошту',
+      'Please provide a valid email address',
     ],
   },
   name: {

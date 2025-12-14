@@ -3,12 +3,13 @@ import express from "express";
 import cors from "cors";
 import passport from "passport";
 import setupGooglePassport from "./config/passport.js";
+import startSurpriseReminderCron from './config/cronJobs.js';
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import searchRoutes from './routes/searchRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
-import surpriseRoutes from './routes/surprise.js';
+import surpriseRoutes from './routes/surpriseRoutes.js';
 import cityRoutes from './routes/cityRoutes.js';
 import countryRoutes from './routes/countryRoutes.js';
 import homeRoutes from './routes/homeRoutes.js';
@@ -20,9 +21,8 @@ import carrierScheduleRoutes from './routes/carrierScheduleRoutes.js';
 
 const app = express();
 
+// Stripe webhook needs raw body - must be before json middleware
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
-
-import startSurpriseReminderCron from './config/cronJobs.js';
 
 // Start cron jobs
 startSurpriseReminderCron();
